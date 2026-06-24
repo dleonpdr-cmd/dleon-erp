@@ -1,0 +1,125 @@
+'use client'
+
+import { useState } from 'react'
+import { criarFatura } from '@/app/api/faturas/actions'
+
+export function ModalNovaFatura({ onClose }: { onClose: () => void }) {
+  const [form, setForm] = useState({
+    valor_total: '',
+    desconto: '0',
+    metodo: 'Transferência bancária',
+    vencimento: '',
+    observacoes: '',
+  })
+  const [loading, setLoading] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+
+  function set(field: string, value: string) {
+    setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  async function handleSubmit() {
+    if (!form.valor_total || !form.vencimento) {
+      setErro('Valor e vencimento são obrigatórios')
+      return
+    }
+    setLoading(true)
+    setErro(null)
+
+    const { error } = await criarFatura({
+      valor_total: parseFloat(form.valor_total),
+      desconto: parseFloat(form.desconto) || 0,
+      metodo: form.metodo,
+      vencimento: form.vencimento,
+      observacoes: form.observacoes || undefined,
+    })
+
+    setLoading(false)
+    if (error) { setErro(error); return }
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-background rounded-2xl shadow-2xl border w-full max-w-md mx-4 p-6">
+        <h2 className="text-lg font-semibold mb-6">Nova Fatura</h2>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Valor Total (¥)</label>
+            <input
+              type="number"
+              value={form.valor_total}
+              onChange={e => set('valor_total', e.target.value)}
+              placeholder="0"
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Desconto (¥)</label>
+            <input
+              type="number"
+              value={form.desconto}
+              onChange={e => set('desconto', e.target.value)}
+              placeholder="0"
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Método de pagamento</label>
+            <select
+              value={form.metodo}
+              onChange={e => set('metodo', e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {['Transferência bancária', 'Dinheiro', 'Cheque', 'PIX', 'Cartão', 'Outro']
+                .map(m => <option key={m}>{m}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Vencimento</label>
+            <input
+              type="date"
+              value={form.vencimento}
+              onChange={e => set('vencimento', e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1.5">Observações</label>
+            <textarea
+              value={form.observacoes}
+              onChange={e => set('observacoes', e.target.value)}
+              rows={3}
+              placeholder="Referência, número de OS, etc."
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+            />
+          </div>
+        </div>
+
+        {erro && (
+          <p className="mt-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {erro}
+          </p>
+        )}
+
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose} className="flex-1 px-4 py-2 border rounded-lg text-sm hover:bg-muted transition-colors">
+            Cancelar
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-60 transition-colors"
+          >
+            {loading ? 'Criando...' : 'Criar Fatura'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
