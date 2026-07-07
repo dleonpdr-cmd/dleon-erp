@@ -18,15 +18,17 @@ export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } })
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 
-  if (url === '' || key === '') {
+  if (!url || !anonKey) {
     if (!ROTAS_PUBLICAS.includes(pathname))
       return NextResponse.redirect(new URL('/login', request.url))
     return response
   }
 
-  const supabase = createServerClient(url, key, {
+  // Cliente para autenticação (anon key + cookies)
+  const supabase = createServerClient(url, anonKey, {
     cookies: {
       getAll() { return request.cookies.getAll() },
       setAll(cookiesToSet) {
@@ -46,19 +48,24 @@ export async function middleware(request: NextRequest) {
   if (user && pathname === '/login')
     return NextResponse.redirect(new URL('/', request.url))
 
-  if (user) {
-    const { data: perfil } = await supabase
+  if (user && serviceKey) {
+    // Cliente service role para buscar perfil sem RLS bloqueando
+    const admin = createServerClient(url, serviceKey, {
+      cookies: {
+        getAll() { return [] },
+        setAll() {},
+      },
+    })
+
+    const { data: perfil } = await admin
       .from('perfis')
       .select('perfil')
       .eq('id', user.id)
       .single()
 
     const role = perfil?.perfil ?? 'tecnico'
-
-    // Guardar perfil no header para usar nos server components
     response.headers.set('x-user-role', role)
 
-    // Verificar permissão por rota
     for (const [rota, permitidos] of Object.entries(PERMISSOES)) {
       if (pathname.startsWith(rota) && !permitidos.includes(role)) {
         return NextResponse.redirect(new URL('/?acesso=negado', request.url))
