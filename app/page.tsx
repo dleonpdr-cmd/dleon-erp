@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import Link from 'next/link'
 
 export default async function HomePage() {
   const supabase = await createSupabaseServerClient()
@@ -20,6 +21,16 @@ export default async function HomePage() {
     supabase.from('cases').select('*').order('created_at', { ascending: false }).limit(5),
   ])
 
+  const navItems = [
+    { label: 'Dashboard', href: '/' },
+    { label: 'Casos',     href: '/cases' },
+    { label: 'Clientes',  href: '/customers' },
+    { label: 'Veículos',  href: '/vehicles' },
+    { label: 'Técnicos',  href: '/technicians' },
+    { label: 'Comissões', href: '/commissions' },
+    { label: 'Pagamentos',href: '/pagamentos' },
+  ]
+
   return (
     <div style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0EEE9', fontFamily: 'system-ui' }}>
       <div style={{ borderBottom: '1px solid #2A2A2A', padding: '16px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -31,18 +42,13 @@ export default async function HomePage() {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', minHeight: 'calc(100vh - 57px)' }}>
         <div style={{ borderRight: '1px solid #2A2A2A', padding: '20px 0' }}>
-          {[
-            { label: 'Dashboard', active: true },
-            { label: 'Casos', active: false },
-            { label: 'Clientes', active: false },
-            { label: 'Veículos', active: false },
-            { label: 'Técnicos', active: false },
-            { label: 'Comissões', active: false },
-            { label: 'Pagamentos', active: false },
-          ].map(item => (
-            <div key={item.label} style={{ padding: '8px 20px', fontSize: '13px', color: item.active ? '#FF6B00' : '#888', background: item.active ? 'rgba(255,107,0,0.08)' : 'transparent', borderRight: item.active ? '2px solid #FF6B00' : 'none', cursor: 'pointer' }}>
+          {navItems.map(item => (
+            <Link key={item.label} href={item.href} style={{ display: 'block', padding: '8px 20px', fontSize: '13px', color: '#888', textDecoration: 'none' }}
+              onMouseOver={e => (e.currentTarget.style.color = '#FF6B00')}
+              onMouseOut={e => (e.currentTarget.style.color = '#888')}
+            >
               {item.label}
-            </div>
+            </Link>
           ))}
         </div>
         <div style={{ padding: '28px 32px' }}>
@@ -54,9 +60,9 @@ export default async function HomePage() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
             {[
-              { label: 'Total de casos', value: casesTotal ?? 0, color: '#F0EEE9' },
-              { label: 'Em andamento', value: casesInProgress ?? 0, color: '#FF6B00' },
-              { label: 'Concluídos', value: casesDone ?? 0, color: '#1D9E75' },
+              { label: 'Total de casos',  value: casesTotal ?? 0,       color: '#F0EEE9' },
+              { label: 'Em andamento',    value: casesInProgress ?? 0,  color: '#FF6B00' },
+              { label: 'Concluídos',      value: casesDone ?? 0,        color: '#1D9E75' },
               { label: 'Técnicos ativos', value: techniciansTotal ?? 0, color: '#378ADD' },
             ].map(kpi => (
               <div key={kpi.label} style={{ background: '#141414', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '16px' }}>
@@ -79,7 +85,7 @@ export default async function HomePage() {
             ) : (
               <div style={{ textAlign: 'center', padding: '32px', color: '#333' }}>
                 <div style={{ fontSize: '32px', marginBottom: '8px' }}>📂</div>
-                <div style={{ fontSize: '13px', color: '#444' }}>Nenhum caso ainda. Crie o primeiro caso para começar.</div>
+                <div style={{ fontSize: '13px', color: '#444' }}>Nenhum caso ainda.</div>
               </div>
             )}
           </div>
