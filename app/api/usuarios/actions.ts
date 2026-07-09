@@ -12,24 +12,31 @@ function adminClient() {
 }
 
 export async function criarUsuario(email: string, senha: string, perfil: string) {
-  const admin = adminClient()
+  try {
+    const admin = adminClient()
 
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password: senha,
-    email_confirm: true,
-  })
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password: senha,
+      email_confirm: true,
+    })
 
-  if (error) return { error: error.message }
+    if (error) return { error: error.message || 'Erro ao criar usuário no Auth' }
+    if (!data?.user) return { error: 'Usuário não foi criado' }
 
-  await admin.from('perfis').insert({
-    id: data.user.id,
-    perfil,
-    ativo: true,
-  })
+    const { error: perfilError } = await admin.from('perfis').insert({
+      id: data.user.id,
+      perfil,
+      ativo: true,
+    })
 
-  revalidatePath('/usuarios')
-  return { error: null }
+    if (perfilError) return { error: perfilError.message || 'Erro ao salvar perfil' }
+
+    revalidatePath('/usuarios')
+    return { error: null }
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : 'Erro desconhecido' }
+  }
 }
 
 export async function alterarPerfil(userId: string, perfil: string) {
