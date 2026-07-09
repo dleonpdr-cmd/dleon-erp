@@ -29,6 +29,7 @@ export default async function HomePage() {
     { label: 'Técnicos',  href: '/technicians' },
     { label: 'Comissões', href: '/commissions' },
     { label: 'Pagamentos',href: '/pagamentos' },
+    { label: 'Usuários',   href: '/usuarios' },
   ]
 
   return (

@@ -31,7 +31,7 @@ export async function getUsuarioPerfil() {
 
 export async function requirePerfil(...perfisPermitidos: Perfil[]) {
   const { user, perfil, ativo } = await getUsuarioPerfil()
-  if (!ativo) redirect('/?acesso=inativo')
-  if (!perfisPermitidos.includes(perfil)) redirect('/?acesso=negado')
+  if (!ativo) redirect('/acesso-negado')
+  if (!perfisPermitidos.includes(perfil)) redirect('/acesso-negado')
   return { user, perfil }
 }
