@@ -43,7 +43,7 @@ export default async function PagamentosPage({
             {new Date(mesAtual + '-15').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
           </p>
         </div>
-        <NoveFaturaBtn />
+        <NoveFaturaBtn osProntas={osProntas} />
       </div>
 
       <Suspense fallback={<div className="h-24 animate-pulse bg-muted rounded-lg" />}>
