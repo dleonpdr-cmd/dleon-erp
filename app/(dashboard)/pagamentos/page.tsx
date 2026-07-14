@@ -15,7 +15,7 @@ export const metadata = { title: 'Pagamentos — D\'LEON ERP' }
 export default async function PagamentosPage({
   searchParams,
 }: {
-  searchParams: { status?: string; mes?: string }
+  searchParams: Promise<{ status?: string; mes?: string }>
 }) {
   const mesAtual = searchParams.mes || new Date().toISOString().slice(0, 7)
 
