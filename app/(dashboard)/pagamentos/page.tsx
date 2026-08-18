@@ -17,10 +17,11 @@ export default async function PagamentosPage({
 }: {
   searchParams: Promise<{ status?: string; mes?: string }>
 }) {
-  const mesAtual = searchParams.mes || new Date().toISOString().slice(0, 7)
+  const { status, mes } = await searchParams
+  const mesAtual = mes || new Date().toISOString().slice(0, 7)
 
   const [faturas, comissoes, osProntas, resumo] = await Promise.all([
-    listarFaturas({ status: searchParams.status, mes: mesAtual }),
+    listarFaturas({ status, mes: mesAtual }),
     listarComissoes({ mes: mesAtual }),
     listarOsParaFaturar(),
     resumoPagamentos(1),
