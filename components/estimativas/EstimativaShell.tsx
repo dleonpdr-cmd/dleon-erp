@@ -327,7 +327,10 @@ export default function EstimativaShell({ doc, items: initItems, customer, vehic
     setSaveStatus('unsaved')
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => doSave(subject, notes, conditions, items, meta), 2500)
-  }, [subject, notes, conditions, items, meta])
+    return () => {
+      if (timer.current) clearTimeout(timer.current)
+    }
+  }, [subject, notes, conditions, items, meta, isDraft, doSave])
 
   function updateItem(idx: number, field: keyof DocItem, val: any) {
     setItems(prev => {
