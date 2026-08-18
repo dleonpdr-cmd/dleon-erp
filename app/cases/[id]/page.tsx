@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { AdvanceStatusButton } from '@/components/cases/AdvanceStatusButton'
+import { CriarEstimativaBtn } from '@/components/cases/CriarEstimativaBtn'
 
 export default async function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -43,6 +44,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '12px', padding: '4px 12px', borderRadius: '10px', background: `${statusColor[c.status]}20`, color: statusColor[c.status], fontWeight: '500' }}>{statusLabel[c.status]}</span>
             {nextStatus && <AdvanceStatusButton caseId={c.id} nextStatus={nextStatus} nextLabel={nextLabel} />}
+            <CriarEstimativaBtn caseId={c.id} />
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
