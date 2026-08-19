@@ -79,23 +79,26 @@ export async function criarEstimativaAction(caseId: string) {
 
   if (parts && parts.length > 0) {
     const items = parts.map((p: any, i: number) => {
-      const partKey = (p.part_name ?? '').toLowerCase().replace(/ /g, '_')
+      // part_name pode vir como "Front Door RH" ou "front_door_rh"
+      const raw = (p.part_name ?? p.part_key ?? '')
+      const partKey = raw.toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_')
       return {
         document_id: doc.id,
         sort_order: i,
-        section: 'pdr',
+        section: 'pdr' as const,
         item_type: 'pdr_repair',
         part_id: partKey,
-        part_label: PART_LABEL_JA[partKey] ?? p.part_name,
-        dent_count: p.dent_count,
-        unit_price: Number(p.subtotal),
+        part_label: PART_LABEL_JA[partKey] ?? raw,
+        dent_count: parseInt(String(p.dent_count ?? 0), 10),
+        unit_price: Math.round(Number(p.subtotal ?? 0)),
         quantity: 1,
-        subtotal: Number(p.subtotal),
+        subtotal: Math.round(Number(p.subtotal ?? 0)),
         source_type: 'inspection',
-        original_price: Number(p.subtotal),
+        original_price: Math.round(Number(p.subtotal ?? 0)),
       }
     })
-    await supabase.from('document_items').insert(items)
+    const { error: itemsError } = await supabase.from('document_items').insert(items)
+    if (itemsError) throw new Error('Erro ao inserir itens: ' + itemsError.message)
   }
 
   await supabase.from('document_events').insert({
