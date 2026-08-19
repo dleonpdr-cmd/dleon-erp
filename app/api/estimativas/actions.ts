@@ -34,11 +34,11 @@ export async function criarEstimativaAction(caseId: string) {
     .single()
   if (!caso) throw new Error('Caso não encontrado')
 
-  const { data: parts } = await supabase
+  const { data: parts, error: partsError } = await supabase
     .from('vehicle_parts')
     .select('*')
     .eq('case_id', caseId)
-    .order('created_at')
+  if (partsError) console.error('vehicle_parts query error:', partsError.message)
 
   const subtotal = (parts ?? []).reduce((s: number, p: any) => s + Number(p.subtotal), 0)
   const taxAmount = Math.round(subtotal * 0.1)
