@@ -13,6 +13,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   if (!c) redirect('/cases')
   const { data: parts } = await supabase.from('vehicle_parts').select('*').eq('case_id', id)
   const { data: caseTechs } = await supabase.from('case_technicians').select('*, technicians(name, region)').eq('case_id', id)
+  const { data: estimativas } = await supabase.from('documents').select('id, doc_number, doc_status, total_amount, created_at').eq('case_id', id).eq('doc_type', 'estimate').order('created_at', { ascending: false })
   const statusOrder = ['draft','quoted','approved','in_progress','done','invoiced','received','paid']
   const statusLabel: any = { draft:'Rascunho', quoted:'Orçamento', approved:'Aprovado', in_progress:'Em execução', done:'Concluído', invoiced:'Faturado', received:'Recebido', paid:'Pago' }
   const statusColor: any = { draft:'#555', quoted:'#378ADD', approved:'#1D9E75', in_progress:'#FF6B00', done:'#1D9E75', invoiced:'#7F77DD', received:'#1D9E75', paid:'#888' }
@@ -86,6 +87,25 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: '500', color: '#FF6B00' }}><span>Total</span><span>¥{Number(c.total_amount).toLocaleString()}</span></div>
           </div>
         </div>
+        {/* 見積書 vinculadas */}
+        <div style={{ ...card, marginBottom: '12px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '500', color: '#555', marginBottom: '12px' }}>見積書</div>
+          {estimativas && estimativas.length > 0 ? estimativas.map((d: any) => {
+            const docColor: Record<string, string> = { draft: '#888', issued: '#1D9E75', cancelled: '#ef4444' }
+            const docLabel: Record<string, string> = { draft: 'Rascunho', issued: '発行済み', cancelled: 'Cancelado' }
+            return (
+              <Link key={d.id} href={`/estimativas/${d.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #1A1A1A', textDecoration: 'none', color: 'inherit' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: '12px', color: '#FF6B00' }}>{d.doc_number}</span>
+                <span style={{ fontSize: '12px', color: '#FF6B00', fontWeight: '500' }}>¥{Number(d.total_amount).toLocaleString('ja-JP')}</span>
+                <span style={{ fontSize: '11px', padding: '2px 10px', borderRadius: '10px', background: `${docColor[d.doc_status] ?? '#888'}22`, color: docColor[d.doc_status] ?? '#888' }}>
+                  {docLabel[d.doc_status] ?? d.doc_status}
+                </span>
+                <span style={{ fontSize: '11px', color: '#555' }}>{new Date(d.created_at).toLocaleDateString('pt-BR')} →</span>
+              </Link>
+            )
+          }) : <div style={{ fontSize: '13px', color: '#555' }}>Nenhuma 見積書 criada.</div>}
+        </div>
+
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', padding: '16px', background: '#141414', borderRadius: '10px' }}>
           {statusOrder.map((s, i) => (
             <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
