@@ -424,11 +424,18 @@ export default function EstimativaShell({ doc, items: initItems, customer, vehic
 
           <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}>
             {msg && <span style={{ fontSize: '12px', color: msg.startsWith('Erro') ? '#ef4444' : '#22c55e' }}>{msg}</span>}
+            <a
+              href={`/api/estimativas/${doc.id}/pdf`}
+              download
+              style={{ background: '#1A1A1A', color: '#CCC', border: '1px solid #2A2A2A', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            >
+              ⬇ PDF ダウンロード
+            </a>
             <button
               onClick={() => window.print()}
-              style={{ background: '#1A1A1A', color: '#CCC', border: '1px solid #2A2A2A', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer' }}
+              style={{ background: '#1A1A1A', color: '#888', border: '1px solid #2A2A2A', borderRadius: '6px', padding: '7px 12px', fontSize: '12px', cursor: 'pointer' }}
             >
-              {'🖨'} PDF / {'印刷'}
+              🖨
             </button>
             {isDraft && (
               <button
