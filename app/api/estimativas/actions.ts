@@ -3,6 +3,12 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { Resend } from 'resend'
+import { renderToBuffer } from '@react-pdf/renderer'
+import { createElement, type ComponentProps } from 'react'
+import type { ReactElement } from 'react'
+import { Document } from '@react-pdf/renderer'
+import EstimativaPDF from '@/components/estimativas/EstimativaPDF'
 
 const PART_LABEL_JA: Record<string, string> = {
   roof:            'ルーフ',
@@ -215,6 +221,91 @@ export async function emitirEstimativaAction(docId: string) {
     user_id: user.id,
     payload: {},
   })
+
+  revalidatePath(`/estimativas/${docId}`)
+  return { error: null }
+}
+
+export async function enviarEmailAction(
+  docId: string,
+  toEmail: string,
+  mensagem: string,
+) {
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  if (!process.env.RESEND_API_KEY) return { error: 'RESEND_API_KEY não configurada' }
+
+  // Busca documento + itens + cliente + veículo
+  const { data: doc } = await supabase
+    .from('documents')
+    .select('*')
+    .eq('id', docId)
+    .single()
+  if (!doc) return { error: 'Documento não encontrado' }
+
+  const [itemsRes, customerRes, vehicleRes] = await Promise.all([
+    supabase.from('document_items').select('*').eq('document_id', docId).order('sort_order'),
+    doc.customer_id
+      ? supabase.from('customers').select('*').eq('id', doc.customer_id).single()
+      : Promise.resolve({ data: null, error: null }),
+    doc.vehicle_id
+      ? supabase.from('vehicles').select('*').eq('id', doc.vehicle_id).single()
+      : Promise.resolve({ data: null, error: null }),
+  ])
+
+  const items = itemsRes.data ?? []
+  const customer = customerRes.data ?? null
+  const vehicle = vehicleRes.data ?? null
+  const meta = (doc.snapshot as { meta?: Record<string, string> } | null)?.meta ?? {}
+
+  // Gera PDF
+  const element = createElement(EstimativaPDF, { doc, items, customer, vehicle, meta })
+  const pdfBuffer = await renderToBuffer(
+    element as unknown as ReactElement<ComponentProps<typeof Document>>
+  )
+
+  const filename = `${doc.doc_number ?? docId}.pdf`
+
+  // Envia via Resend
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  const { error: sendError } = await resend.emails.send({
+    from: "D'LEON <onboarding@resend.dev>",
+    to: [toEmail],
+    subject: `御見積書 ${doc.doc_number} — D'LEON`,
+    html: `
+      <div style="font-family:sans-serif;color:#222;max-width:600px">
+        <h2 style="color:#1B2744">御見積書 ${doc.doc_number}</h2>
+        <p>${mensagem.replace(/\n/g, '<br>')}</p>
+        <p>御見積金額（税込）: <strong>¥${Number(doc.total_amount).toLocaleString('ja-JP')}</strong></p>
+        <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+        <p style="font-size:12px;color:#888">D'LEON — BARROS LEON GABRIEL<br>080-1586-0585</p>
+      </div>
+    `,
+    attachments: [
+      {
+        filename,
+        content: Buffer.from(pdfBuffer),
+      },
+    ],
+  })
+
+  if (sendError) return { error: sendError.message }
+
+  // Registra evento e atualiza send_status
+  await Promise.all([
+    supabase.from('document_events').insert({
+      document_id: docId,
+      event_type: 'sent',
+      user_id: user.id,
+      payload: { to: toEmail },
+    }),
+    supabase
+      .from('documents')
+      .update({ send_status: 'sent', sent_at: new Date().toISOString() })
+      .eq('id', docId),
+  ])
 
   revalidatePath(`/estimativas/${docId}`)
   return { error: null }

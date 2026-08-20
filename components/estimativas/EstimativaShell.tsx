@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { salvarRascunhoAction, emitirEstimativaAction } from '@/app/api/estimativas/actions'
+import { salvarRascunhoAction, emitirEstimativaAction, enviarEmailAction } from '@/app/api/estimativas/actions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -309,6 +309,10 @@ export default function EstimativaShell({ doc, items: initItems, customer, vehic
   const [docStatus,  setDocStatus]  = useState<string>(doc.doc_status)
   const [emitting,   setEmitting]   = useState(false)
   const [msg,        setMsg]        = useState('')
+  const [showEmail,  setShowEmail]  = useState(false)
+  const [emailTo,    setEmailTo]    = useState<string>(customer?.email ?? '')
+  const [emailMsg,   setEmailMsg]   = useState<string>(`お世話になっております。\nD'LEONでございます。\n御見積書をお送りいたします。\nご確認のほど、よろしくお願いいたします。`)
+  const [sending,    setSending]    = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDraft = docStatus === 'draft'
 
@@ -361,6 +365,15 @@ export default function EstimativaShell({ doc, items: initItems, customer, vehic
     setEmitting(false)
     if (res.error) { setMsg('Erro: ' + res.error); return }
     setDocStatus('issued'); setMsg('発行しました！')
+  }
+
+  async function handleSendEmail() {
+    if (!emailTo) return
+    setSending(true); setMsg('')
+    const res = await enviarEmailAction(doc.id, emailTo, emailMsg)
+    setSending(false)
+    if (res.error) { setMsg('Erro: ' + res.error); return }
+    setShowEmail(false); setMsg('メール送信しました！')
   }
 
   const subtotal = items.reduce((s, it) => s + (it.subtotal || 0), 0)
@@ -429,8 +442,14 @@ export default function EstimativaShell({ doc, items: initItems, customer, vehic
               download
               style={{ background: '#1A1A1A', color: '#CCC', border: '1px solid #2A2A2A', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
             >
-              ⬇ PDF ダウンロード
+              ⬇ PDF
             </a>
+            <button
+              onClick={() => { setShowEmail(true) }}
+              style={{ background: '#1B2744', color: '#fff', border: 'none', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            >
+              ✉ メール送信
+            </button>
             <button
               onClick={() => window.print()}
               style={{ background: '#1A1A1A', color: '#888', border: '1px solid #2A2A2A', borderRadius: '6px', padding: '7px 12px', fontSize: '12px', cursor: 'pointer' }}
@@ -559,6 +578,52 @@ export default function EstimativaShell({ doc, items: initItems, customer, vehic
           </div>
         </div>
       </div>
+
+      {/* Modal de envio por email */}
+      {showEmail && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '28px', width: '480px', maxWidth: '90vw' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#F0EEE9' }}>✉ メール送信 — {doc.doc_number}</h3>
+              <button onClick={() => setShowEmail(false)} style={{ background: 'none', border: 'none', color: '#555', fontSize: '18px', cursor: 'pointer' }}>✕</button>
+            </div>
+
+            <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Para (email do cliente)</label>
+            <input
+              type="email"
+              value={emailTo}
+              onChange={e => setEmailTo(e.target.value)}
+              placeholder="cliente@email.com"
+              style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: '6px', padding: '8px 10px', color: '#F0EEE9', fontSize: '13px', marginBottom: '14px', boxSizing: 'border-box' }}
+            />
+
+            <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Mensagem</label>
+            <textarea
+              value={emailMsg}
+              onChange={e => setEmailMsg(e.target.value)}
+              rows={6}
+              style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: '6px', padding: '8px 10px', color: '#F0EEE9', fontSize: '12px', resize: 'vertical', marginBottom: '6px', boxSizing: 'border-box' }}
+            />
+            <p style={{ fontSize: '11px', color: '#555', marginBottom: '20px' }}>O PDF da 見積書 será anexado automaticamente.</p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                onClick={() => setShowEmail(false)}
+                style={{ background: '#111', color: '#888', border: '1px solid #333', borderRadius: '6px', padding: '8px 18px', fontSize: '12px', cursor: 'pointer' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSendEmail}
+                disabled={sending || !emailTo}
+                style={{ background: '#1B2744', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 20px', fontSize: '12px', fontWeight: '600', cursor: sending || !emailTo ? 'not-allowed' : 'pointer', opacity: sending || !emailTo ? 0.5 : 1 }}
+              >
+                {sending ? '送信中...' : '送信する'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
