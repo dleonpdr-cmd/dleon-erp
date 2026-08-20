@@ -719,8 +719,8 @@ D'LEON`
                               <span style={{ fontSize: '12px', color: isOk ? '#1D9E75' : '#ef4444', fontWeight: '600' }}>{isOk ? '✓ Enviado' : '✗ Falhou'}</span>
                               <span style={{ fontSize: '11px', color: '#555' }}>{new Date(d.created_at).toLocaleString('pt-BR')}</span>
                             </div>
-                            <div style={{ fontSize: '12px', color: '#888' }}>Para: {(p.to ?? []).join(', ')}</div>
-                            {p.cc?.length > 0 && <div style={{ fontSize: '12px', color: '#666' }}>CC: {p.cc.join(', ')}</div>}
+                            <div style={{ fontSize: '12px', color: '#888' }}>Para: {(Array.isArray(p.to) ? p.to : p.to ? [p.to] : []).join(', ')}</div>
+                            {Array.isArray(p.cc) && p.cc.length > 0 && <div style={{ fontSize: '12px', color: '#666' }}>CC: {p.cc.join(', ')}</div>}
                             <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>{p.subject}</div>
                             {p.error_message && <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '2px' }}>Erro: {p.error_message}</div>}
                           </div>
