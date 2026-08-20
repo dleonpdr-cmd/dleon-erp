@@ -13,7 +13,7 @@ export default function NewCasePage() {
   const [customers, setCustomers] = useState<any[]>([])
   const [vehicles, setVehicles] = useState<any[]>([])
   const [technicians, setTechnicians] = useState<any[]>([])
-  const [parts, setParts] = useState([{ part_name: 'Roof', dent_count: 0, unit_price: 100 }])
+  const [parts, setParts] = useState([{ part_name: 'Roof', dent_count: 0, unit_price: 1000 }])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -55,7 +55,7 @@ export default function NewCasePage() {
     const { data: caseData, error: caseError } = await supabase.from('cases').insert([{
       case_number, customer_id: form.customer_id, vehicle_id: form.vehicle_id,
       type: form.type, region: form.region, notes: form.notes,
-      quote_amount: subtotal, tax_amount: tax, total_amount: total, status: 'quoted'
+      quote_amount: subtotal, tax_amount: tax, total_amount: total, status: 'draft'
     }]).select().single()
 
     if (caseError || !caseData) { setError('Erro ao criar caso.'); setLoading(false); return }
@@ -69,7 +69,7 @@ export default function NewCasePage() {
     }))
     if (partsToInsert.length > 0) await supabase.from('vehicle_parts').insert(partsToInsert)
 
-    router.push('/cases')
+    router.push(`/cases/${caseData.id}`)
     router.refresh()
   }
 
@@ -142,14 +142,22 @@ export default function NewCasePage() {
 
           <div style={sectionStyle}>
             <div style={sectionTitle}>4. PEÇAS E AMASSADOS</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 90px 32px', gap: '8px', marginBottom: '6px' }}>
+              {['Peça', 'Qtd', '¥/dent', 'Subtotal', ''].map(h => (
+                <span key={h} style={{ fontSize: '10px', color: '#555', fontWeight: '500' }}>{h}</span>
+              ))}
+            </div>
             {parts.map((part, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px 32px', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 90px 32px', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
                 <select value={part.part_name} onChange={e => updatePart(i, 'part_name', e.target.value)}
                   style={{ height: '38px', background: '#1E1E1E', border: '1px solid #2A2A2A', borderRadius: '6px', color: '#F0EEE9', fontSize: '12px', padding: '0 10px', outline: 'none' }}>
                   {partOptions.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
                 <input type="number" placeholder="Qtd" value={part.dent_count || ''}
                   onChange={e => updatePart(i, 'dent_count', Number(e.target.value))}
+                  style={{ height: '38px', background: '#1E1E1E', border: '1px solid #2A2A2A', borderRadius: '6px', color: '#F0EEE9', fontSize: '12px', padding: '0 10px', outline: 'none', textAlign: 'center' }} />
+                <input type="number" placeholder="¥/dent" value={part.unit_price || ''}
+                  onChange={e => updatePart(i, 'unit_price', Number(e.target.value))}
                   style={{ height: '38px', background: '#1E1E1E', border: '1px solid #2A2A2A', borderRadius: '6px', color: '#F0EEE9', fontSize: '12px', padding: '0 10px', outline: 'none', textAlign: 'center' }} />
                 <div style={{ height: '38px', background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#FF6B00' }}>
                   ¥{(part.dent_count * part.unit_price).toLocaleString()}
