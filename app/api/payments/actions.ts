@@ -1,5 +1,3 @@
-'use server'
-
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
@@ -59,6 +57,7 @@ export async function getPaymentsForCase(caseId: string): Promise<{
   status: PaymentStatus
   total: number
 }> {
+  'use server'
   const supabase = await createSupabaseServerClient()
 
   const [caseRes, paymentsRes] = await Promise.all([
@@ -97,6 +96,7 @@ export async function createPayment(
     notes?:     string
   }
 ): Promise<{ error: string | null }> {
+  'use server'
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
@@ -149,6 +149,7 @@ export async function cancelPayment(
   paymentId: string,
   caseId:    string
 ): Promise<{ error: string | null }> {
+  'use server'
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
@@ -180,6 +181,7 @@ export async function cancelPayment(
 // ─── getAllPaymentSummaries (for /pagamentos overview) ────────────────────────
 
 export async function getAllPaymentSummaries() {
+  'use server'
   const supabase = await createSupabaseServerClient()
 
   const { data: cases } = await supabase
