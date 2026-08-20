@@ -4,6 +4,8 @@ import Link from 'next/link'
 import AppShell from '@/components/AppShell'
 import { AdvanceStatusButton } from '@/components/cases/AdvanceStatusButton'
 import { CriarEstimativaBtn } from '@/components/cases/CriarEstimativaBtn'
+import PaymentSection from '@/components/payments/PaymentSection'
+import { getPaymentsForCase } from '@/app/api/payments/actions'
 
 export default async function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -23,11 +25,13 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     { data: caseTechs },
     { data: estimativas },
     { data: commission },
+    payments,
   ] = await Promise.all([
     supabase.from('vehicle_parts').select('*').eq('case_id', id),
     supabase.from('case_technicians').select('*, technicians(name, region)').eq('case_id', id),
     supabase.from('documents').select('id, doc_number, doc_status, total_amount, created_at').eq('case_id', id).eq('doc_type', 'estimate').order('created_at', { ascending: false }),
     supabase.from('commissions').select('id, status, total_amount').eq('case_id', id).single().then(r => r),
+    getPaymentsForCase(id),
   ])
 
   const statusOrder = ['draft','quoted','approved','in_progress','done','invoiced','received','paid']
@@ -158,6 +162,16 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
           <div style={{ fontSize: '13px', color: '#555' }}>Comissão ainda não calculada para este caso.</div>
         )}
       </div>
+
+      {/* Pagamentos */}
+      <PaymentSection
+        caseId={c.id}
+        totalAmount={Number(c.total_amount ?? 0)}
+        initialPayments={payments.data}
+        initialReceived={payments.received}
+        initialBalance={payments.balance}
+        initialStatus={payments.status}
+      />
 
       {/* Timeline de status */}
       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', padding: '16px', background: '#141414', borderRadius: '10px' }}>
