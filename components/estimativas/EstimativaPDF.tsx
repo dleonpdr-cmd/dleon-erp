@@ -8,7 +8,7 @@ const BORD = '#D1D5DB'
 const LBKG = '#F5F6F7'
 
 const s = StyleSheet.create({
-  page: { fontFamily: 'NotoSansJP', fontSize: 9, color: '#1a1a1a', padding: '40px 48px 56px' },
+  page: { fontFamily: 'NotoSansJP', fontSize: 9, color: '#1a1a1a', padding: '30px 48px 36px' },
   row: { flexDirection: 'row' },
   col: { flexDirection: 'column' },
 
@@ -79,9 +79,9 @@ type Props = {
 }
 
 export default function EstimativaPDF({ doc, items, customer, vehicle, meta }: Props) {
-  const pdr  = items.filter(it => it.section === 'pdr')
-  const anc  = items.filter(it => it.section === 'ancillary')
-  const trav = items.filter(it => it.section === 'travel')
+  const pdr  = items.filter(it => it.section === 'pdr' && (it.subtotal || 0) > 0)
+  const anc  = items.filter(it => it.section === 'ancillary' && (it.subtotal || 0) > 0)
+  const trav = items.filter(it => it.section === 'travel' && (it.subtotal || 0) > 0)
 
   const sum = (arr: DocItem[]) => arr.reduce((s, it) => s + (it.subtotal || 0), 0)
   const pdrSub  = sum(pdr)
@@ -223,7 +223,7 @@ export default function EstimativaPDF({ doc, items, customer, vehicle, meta }: P
 
         {/* Grand total */}
         <Text style={s.secHead}>■ 御見積合計</Text>
-        <View style={{ border: `1px solid ${BORD}`, marginBottom: 20 }}>
+        <View style={{ border: `1px solid ${BORD}`, marginBottom: 14 }}>
           <View style={s.totRow}>
             <Text style={[s.totCell, { flex: 1 }]}>税抜合計</Text>
             <Text style={[s.totCellR, { width: 100 }]}>{fmt(subtotal)}</Text>
@@ -239,7 +239,7 @@ export default function EstimativaPDF({ doc, items, customer, vehicle, meta }: P
         </View>
 
         {/* Issuer */}
-        <View style={[s.row, { justifyContent: 'space-between', marginBottom: 20 }]}>
+        <View wrap={false} style={[s.row, { justifyContent: 'space-between', marginBottom: 16 }]}>
           <View>
             <Text style={s.issuerTitle}>【発行者】</Text>
             <Text style={s.issuerText}>D'LEON</Text>
