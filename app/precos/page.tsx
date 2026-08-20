@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import Link from 'next/link'
+import AppShell from '@/components/AppShell'
 
 const PECAS_LABELS: Record<string, string> = {
   roof:            'ルーフ (Teto)',
@@ -23,17 +23,6 @@ const PECAS_LABELS: Record<string, string> = {
 
 const NIVEIS = ['Leve', 'Médio', 'Grave'] as const
 type Precos = Record<string, Record<string, number>>
-
-const NAV = [
-  { label: 'Dashboard',        href: '/' },
-  { label: 'Casos',            href: '/cases' },
-  { label: 'Clientes',         href: '/customers' },
-  { label: 'Veículos',         href: '/vehicles' },
-  { label: 'Técnicos',         href: '/technicians' },
-  { label: 'Comissões',        href: '/commissions' },
-  { label: 'Pagamentos',       href: '/payments' },
-  { label: 'Tabela de Preços', href: '/precos', active: true },
-]
 
 export default function PrecosPage() {
   const [precos, setPrecos]     = useState<Precos>({})
@@ -95,122 +84,66 @@ export default function PrecosPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0A0A0A', color: '#F0EEE9', fontFamily: 'system-ui' }}>
-      {/* Header */}
-      <div style={{ borderBottom: '1px solid #2A2A2A', padding: '16px 32px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <Link href="/" style={{ color: '#FF6B00', fontSize: '18px', fontWeight: '600', textDecoration: 'none' }}>{"D'LEON"}</Link>
-        <span style={{ color: '#555', fontSize: '13px' }}>ERP</span>
+    <AppShell>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div>
+          <h1 style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>Tabela de Preços PDR</h1>
+          <p style={{ color: '#666', fontSize: '13px', margin: '4px 0 0' }}>Valores em ¥ — editáveis pelo administrador</p>
+        </div>
+        <button
+          onClick={salvar}
+          disabled={salvando}
+          style={{ background: '#FF6B00', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 24px', fontSize: '14px', fontWeight: '600', cursor: salvando ? 'not-allowed' : 'pointer', opacity: salvando ? 0.6 : 1 }}
+        >
+          {salvando ? 'Salvando...' : 'Salvar tabela'}
+        </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', minHeight: 'calc(100vh - 57px)' }}>
-        {/* Sidebar */}
-        <div style={{ borderRight: '1px solid #2A2A2A', padding: '20px 0' }}>
-          {NAV.map(item => (
-            <Link
-              key={item.label}
-              href={item.href}
-              style={{
-                display: 'block',
-                padding: '8px 20px',
-                fontSize: '13px',
-                color: item.active ? '#FF6B00' : '#888',
-                background: item.active ? 'rgba(255,107,0,0.08)' : 'transparent',
-                borderRight: item.active ? '2px solid #FF6B00' : 'none',
-                textDecoration: 'none',
-              }}
-            >
-              {item.label}
-            </Link>
-          ))}
+      {msg && (
+        <div style={{ padding: '12px 16px', background: msg.startsWith('Erro') ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)', border: '1px solid ' + (msg.startsWith('Erro') ? '#ef4444' : '#22c55e'), borderRadius: '8px', marginBottom: '20px', fontSize: '14px', color: msg.startsWith('Erro') ? '#ef4444' : '#22c55e' }}>
+          {msg}
         </div>
+      )}
 
-        {/* Content */}
-        <div style={{ padding: '32px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <div>
-              <h1 style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>Tabela de Preços PDR</h1>
-              <p style={{ color: '#666', fontSize: '13px', margin: '4px 0 0' }}>Valores em ¥ — editáveis pelo administrador</p>
-            </div>
-            <button
-              onClick={salvar}
-              disabled={salvando}
-              style={{
-                background: '#FF6B00',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '10px 24px',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: salvando ? 'not-allowed' : 'pointer',
-                opacity: salvando ? 0.6 : 1,
-              }}
-            >
-              {salvando ? 'Salvando...' : 'Salvar tabela'}
-            </button>
-          </div>
-
-          {msg && (
-            <div style={{
-              padding: '12px 16px',
-              background: msg.startsWith('Erro') ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
-              border: '1px solid ' + (msg.startsWith('Erro') ? '#ef4444' : '#22c55e'),
-              borderRadius: '8px',
-              marginBottom: '20px',
-              fontSize: '14px',
-              color: msg.startsWith('Erro') ? '#ef4444' : '#22c55e',
-            }}>
-              {msg}
-            </div>
-          )}
-
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #2A2A2A' }}>
-                <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '12px', color: '#666', fontWeight: '500' }}>Peça</th>
-                {NIVEIS.map(n => (
-                  <th key={n} style={{ textAlign: 'center', padding: '10px 12px', fontSize: '12px', color: '#666', fontWeight: '500' }}>{n}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {Object.keys(PECAS_LABELS).map((peca, i) => (
-                <tr key={peca} style={{ borderBottom: '1px solid #161616', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
-                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#CCC' }}>{PECAS_LABELS[peca]}</td>
-                  {NIVEIS.map(nivel => (
-                    <td key={nivel} style={{ padding: '6px 12px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                        <span style={{ color: '#555', fontSize: '12px' }}>¥</span>
-                        <input
-                          type="number"
-                          value={precos[peca]?.[nivel] ?? ''}
-                          onChange={e => atualizar(peca, nivel, e.target.value)}
-                          style={inputStyle}
-                          onFocus={e => (e.target.style.borderColor = '#FF6B00')}
-                          onBlur={e => (e.target.style.borderColor = '#2A2A2A')}
-                        />
-                      </div>
-                    </td>
-                  ))}
-                </tr>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid #2A2A2A' }}>
+            <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '12px', color: '#666', fontWeight: '500' }}>Peça</th>
+            {NIVEIS.map(n => (
+              <th key={n} style={{ textAlign: 'center', padding: '10px 12px', fontSize: '12px', color: '#666', fontWeight: '500' }}>{n}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Object.keys(PECAS_LABELS).map((peca, i) => (
+            <tr key={peca} style={{ borderBottom: '1px solid #161616', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+              <td style={{ padding: '8px 12px', fontSize: '13px', color: '#CCC' }}>{PECAS_LABELS[peca]}</td>
+              {NIVEIS.map(nivel => (
+                <td key={nivel} style={{ padding: '6px 12px', textAlign: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                    <span style={{ color: '#555', fontSize: '12px' }}>¥</span>
+                    <input
+                      type="number"
+                      value={precos[peca]?.[nivel] ?? ''}
+                      onChange={e => atualizar(peca, nivel, e.target.value)}
+                      style={inputStyle}
+                      onFocus={e => (e.target.style.borderColor = '#FF6B00')}
+                      onBlur={e => (e.target.style.borderColor = '#2A2A2A')}
+                    />
+                  </div>
+                </td>
               ))}
-            </tbody>
-          </table>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
-          <div style={{ marginTop: '32px', padding: '20px', background: '#111', borderRadius: '10px', border: '1px solid #2A2A2A' }}>
-            <p style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Multiplicadores (fixos)</p>
-            <p style={{ margin: '4px 0', fontSize: '13px', color: '#AAA' }}>
-              Alumínio: <strong style={{ color: '#FF6B00' }}>+30%</strong>
-            </p>
-            <p style={{ margin: '4px 0', fontSize: '13px', color: '#AAA' }}>
-              Press Line: <strong style={{ color: '#FF6B00' }}>+25%</strong>
-            </p>
-            <p style={{ margin: '10px 0 0', fontSize: '11px', color: '#444' }}>
-              Para alterar os multiplicadores, edite lib/tabela-precos.ts
-            </p>
-          </div>
-        </div>
+      <div style={{ marginTop: '32px', padding: '20px', background: '#111', borderRadius: '10px', border: '1px solid #2A2A2A' }}>
+        <p style={{ margin: '0 0 10px', fontSize: '13px', fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Multiplicadores (fixos)</p>
+        <p style={{ margin: '4px 0', fontSize: '13px', color: '#AAA' }}>Alumínio: <strong style={{ color: '#FF6B00' }}>+30%</strong></p>
+        <p style={{ margin: '4px 0', fontSize: '13px', color: '#AAA' }}>Press Line: <strong style={{ color: '#FF6B00' }}>+25%</strong></p>
+        <p style={{ margin: '10px 0 0', fontSize: '11px', color: '#444' }}>Para alterar os multiplicadores, edite lib/tabela-precos.ts</p>
       </div>
-    </div>
+    </AppShell>
   )
 }
