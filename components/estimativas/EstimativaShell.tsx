@@ -79,7 +79,7 @@ function A4Preview({ doc, items, subject, notes, conditions, customer, vehicle, 
     { label: '登録番号', value: vehicle?.plate || '—' },
     { label: '車台番号', value: meta.vehicle_vin || '—' },
     { label: '初度登録', value: meta.vehicle_first_reg || (vehicle?.year ? `${vehicle.year}年` : '—') },
-    { label: '走行距離', value: meta.vehicle_km ? `細4${Number(meta.vehicle_km).toLocaleString('ja-JP')}km` : '—' },
+    { label: '走行距離', value: meta.vehicle_km && !isNaN(Number(meta.vehicle_km)) ? `${Number(meta.vehicle_km).toLocaleString('ja-JP')}km` : '—' },
     { label: '事故内容', value: meta.vehicle_accident || subject || '—' },
   ]
 
