@@ -4,11 +4,10 @@ import { useState, useTransition } from 'react'
 import {
   createPayment,
   cancelPayment,
-  PAYMENT_METHODS,
-  PAYMENT_ACCOUNTS,
   type Payment,
   type PaymentStatus,
 } from '@/app/api/payments/actions'
+import { PAYMENT_METHODS, PAYMENT_ACCOUNTS } from '@/app/api/payments/constants'
 
 // ─── Status config ─────────────────────────────────────────────────────────────
 

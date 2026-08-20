@@ -1,23 +1,7 @@
+'use server'
+
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-export const PAYMENT_METHODS: Record<string, string> = {
-  bank_transfer: '振込（銀行振込）',
-  cash:          '現金',
-  card:          'カード',
-  insurance:     '保険会社',
-  other:         'その他',
-}
-
-export const PAYMENT_ACCOUNTS = [
-  'Rakuten PJ',
-  'PayPay Bank',
-  'MUFG',
-  'Banco do Brasil',
-  'Outro',
-]
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,7 +41,6 @@ export async function getPaymentsForCase(caseId: string): Promise<{
   status: PaymentStatus
   total: number
 }> {
-  'use server'
   const supabase = await createSupabaseServerClient()
 
   const [caseRes, paymentsRes] = await Promise.all([
@@ -96,7 +79,6 @@ export async function createPayment(
     notes?:     string
   }
 ): Promise<{ error: string | null }> {
-  'use server'
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
@@ -149,7 +131,6 @@ export async function cancelPayment(
   paymentId: string,
   caseId:    string
 ): Promise<{ error: string | null }> {
-  'use server'
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
@@ -181,7 +162,6 @@ export async function cancelPayment(
 // ─── getAllPaymentSummaries (for /pagamentos overview) ────────────────────────
 
 export async function getAllPaymentSummaries() {
-  'use server'
   const supabase = await createSupabaseServerClient()
 
   const { data: cases } = await supabase
