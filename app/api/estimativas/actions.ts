@@ -238,86 +238,128 @@ export async function emitirEstimativaAction(docId: string) {
 
 export async function enviarEmailAction(
   docId: string,
-  toEmail: string,
-  mensagem: string,
-) {
+  params: {
+    to: string[]
+    cc: string[]
+    subject: string
+    body: string
+  }
+): Promise<{ error: string | null }> {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autenticado' }
+  if (!process.env.RESEND_API_KEY) return { error: 'RESEND_API_KEY não configurada no servidor' }
 
-  if (!process.env.RESEND_API_KEY) return { error: 'RESEND_API_KEY não configurada' }
+  const toEmails = params.to.map(e => e.trim()).filter(Boolean)
+  const ccEmails = params.cc.map(e => e.trim()).filter(Boolean)
+  if (!toEmails.length) return { error: 'Destinatário obrigatório' }
 
-  // Busca documento + itens + cliente + veículo
-  const { data: doc } = await supabase
-    .from('documents')
-    .select('*')
-    .eq('id', docId)
-    .single()
+  // Busca documento
+  const { data: doc } = await supabase.from('documents').select('*').eq('id', docId).single()
   if (!doc) return { error: 'Documento não encontrado' }
+  if (doc.doc_status === 'cancelled') return { error: '見積書 está cancelada' }
 
   const [itemsRes, customerRes, vehicleRes] = await Promise.all([
     supabase.from('document_items').select('*').eq('document_id', docId).order('sort_order'),
-    doc.customer_id
-      ? supabase.from('customers').select('*').eq('id', doc.customer_id).single()
-      : Promise.resolve({ data: null, error: null }),
-    doc.vehicle_id
-      ? supabase.from('vehicles').select('*').eq('id', doc.vehicle_id).single()
-      : Promise.resolve({ data: null, error: null }),
+    doc.customer_id ? supabase.from('customers').select('*').eq('id', doc.customer_id).single() : { data: null },
+    doc.vehicle_id  ? supabase.from('vehicles').select('*').eq('id', doc.vehicle_id).single()  : { data: null },
   ])
-
-  const items = itemsRes.data ?? []
-  const customer = customerRes.data ?? null
-  const vehicle = vehicleRes.data ?? null
-  const meta = (doc.snapshot as { meta?: Record<string, string> } | null)?.meta ?? {}
+  const items    = itemsRes.data    ?? []
+  const customer = (customerRes as any).data ?? null
+  const vehicle  = (vehicleRes as any).data  ?? null
+  const meta     = (doc.snapshot as { meta?: Record<string, string> } | null)?.meta ?? {}
 
   // Gera PDF
   registerFonts()
-  const element = createElement(EstimativaPDF, { doc, items, customer, vehicle, meta })
-  const pdfBuffer = await renderToBuffer(
-    element as unknown as ReactElement<ComponentProps<typeof Document>>
-  )
+  let pdfBuffer: Buffer
+  try {
+    const element = createElement(EstimativaPDF, { doc, items, customer, vehicle, meta })
+    pdfBuffer = await renderToBuffer(element as unknown as ReactElement<ComponentProps<typeof Document>>)
+  } catch (e: any) {
+    return { error: 'Erro ao gerar PDF: ' + (e?.message ?? 'desconhecido') }
+  }
 
-  const filename = `${doc.doc_number ?? docId}.pdf`
+  // Filename sanitizado
+  const safeCustomer = (customer?.name ?? '').replace(/[<>:"/\\|?*\s]/g, '').slice(0, 20)
+  const safeVehicle  = [(vehicle?.make ?? ''), (vehicle?.model ?? '')].filter(Boolean).join('').replace(/\s+/g, '')
+  const filename = [
+    safeCustomer ? `${safeCustomer}御中` : null,
+    safeVehicle  || null,
+    '見積書',
+    doc.doc_number ?? docId,
+  ].filter(Boolean).join('_') + '.pdf'
+
+  // HTML do email
+  const htmlBody = `
+    <div style="font-family:'Helvetica Neue',Arial,sans-serif;color:#222;max-width:640px;margin:0 auto">
+      <div style="background:#1B2744;padding:16px 28px">
+        <span style="color:#fff;font-size:18px;font-weight:700">D'LEON</span>
+      </div>
+      <div style="padding:28px 28px 20px;border:1px solid #e5e7eb;border-top:none">
+        <pre style="font-family:inherit;white-space:pre-wrap;font-size:14px;line-height:1.8;margin:0">${params.body.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+        <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+        <p style="font-size:12px;color:#888;margin:0">D'LEON — BARROS LEON GABRIEL<br>080-1586-0585</p>
+      </div>
+    </div>`
 
   // Envia via Resend
   const resend = new Resend(process.env.RESEND_API_KEY)
-  const { error: sendError } = await resend.emails.send({
+  const sendPayload: any = {
     from: "D'LEON <onboarding@resend.dev>",
-    to: [toEmail],
-    subject: `御見積書 ${doc.doc_number} — D'LEON`,
-    html: `
-      <div style="font-family:sans-serif;color:#222;max-width:600px">
-        <h2 style="color:#1B2744">御見積書 ${doc.doc_number}</h2>
-        <p>${mensagem.replace(/\n/g, '<br>')}</p>
-        <p>御見積金額（税込）: <strong>¥${Number(doc.total_amount).toLocaleString('ja-JP')}</strong></p>
-        <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
-        <p style="font-size:12px;color:#888">D'LEON — BARROS LEON GABRIEL<br>080-1586-0585</p>
-      </div>
-    `,
-    attachments: [
-      {
-        filename,
-        content: Buffer.from(pdfBuffer),
+    to: toEmails,
+    subject: params.subject,
+    html: htmlBody,
+    attachments: [{ filename, content: Buffer.from(pdfBuffer) }],
+  }
+  if (ccEmails.length) sendPayload.cc = ccEmails
+
+  const { error: sendError } = await resend.emails.send(sendPayload)
+  const status = sendError ? 'failed' : 'sent'
+  const now    = new Date().toISOString()
+
+  // Registra histórico com snapshot
+  await supabase.from('document_events').insert({
+    document_id: docId,
+    event_type:  status,
+    user_id:     user.id,
+    payload: {
+      to:              toEmails,
+      cc:              ccEmails,
+      subject:         params.subject,
+      body:            params.body,
+      attachment_name: filename,
+      status,
+      error_message:   sendError?.message ?? null,
+      doc_snapshot:    {
+        doc_number:   doc.doc_number,
+        total_amount: doc.total_amount,
+        doc_status:   doc.doc_status,
       },
-    ],
+    },
   })
 
   if (sendError) return { error: sendError.message }
 
-  // Registra evento e atualiza send_status
-  await Promise.all([
-    supabase.from('document_events').insert({
-      document_id: docId,
-      event_type: 'sent',
-      user_id: user.id,
-      payload: { to: toEmail },
-    }),
-    supabase
-      .from('documents')
-      .update({ send_status: 'sent', sent_at: new Date().toISOString() })
-      .eq('id', docId),
-  ])
+  // Atualiza send_status
+  await supabase.from('documents')
+    .update({ send_status: 'sent', sent_at: now })
+    .eq('id', docId)
 
   revalidatePath(`/estimativas/${docId}`)
   return { error: null }
+}
+
+// ─── Histórico de envios ──────────────────────────────────────────────────────
+
+export async function getDeliveryHistoryAction(
+  docId: string
+): Promise<{ data: Array<{ id: string; event_type: string; created_at: string; payload: any }> }> {
+  const supabase = await createSupabaseServerClient()
+  const { data } = await supabase
+    .from('document_events')
+    .select('id, event_type, created_at, payload')
+    .eq('document_id', docId)
+    .in('event_type', ['sent', 'failed'])
+    .order('created_at', { ascending: false })
+  return { data: data ?? [] }
 }

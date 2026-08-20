@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { salvarRascunhoAction, emitirEstimativaAction, enviarEmailAction } from '@/app/api/estimativas/actions'
+import { salvarRascunhoAction, emitirEstimativaAction, enviarEmailAction, getDeliveryHistoryAction } from '@/app/api/estimativas/actions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -309,10 +309,17 @@ export default function EstimativaShell({ doc, items: initItems, customer, vehic
   const [docStatus,  setDocStatus]  = useState<string>(doc.doc_status)
   const [emitting,   setEmitting]   = useState(false)
   const [msg,        setMsg]        = useState('')
-  const [showEmail,  setShowEmail]  = useState(false)
-  const [emailTo,    setEmailTo]    = useState<string>(customer?.email ?? '')
-  const [emailMsg,   setEmailMsg]   = useState<string>(`お世話になっております。\nD'LEONでございます。\n御見積書をお送りいたします。\nご確認のほど、よろしくお願いいたします。`)
-  const [sending,    setSending]    = useState(false)
+  // ─── Email modal state ────────────────────────────────────────────────────────
+  type EmailStep = 'compose' | 'review' | 'sending' | 'done' | 'failed'
+  const [showEmail,    setShowEmail]    = useState(false)
+  const [emailStep,    setEmailStep]    = useState<EmailStep>('compose')
+  const [emailTo,      setEmailTo]      = useState<string>(customer?.email ?? '')
+  const [emailCc,      setEmailCc]      = useState<string>('')
+  const [emailSubject, setEmailSubject] = useState<string>('')
+  const [emailBody,    setEmailBody]    = useState<string>('')
+  const [sending,      setSending]      = useState(false)
+  const [sendErr,      setSendErr]      = useState<string>('')
+  const [deliveries,   setDeliveries]   = useState<any[]>([])
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDraft = docStatus === 'draft'
 
@@ -367,13 +374,75 @@ export default function EstimativaShell({ doc, items: initItems, customer, vehic
     setDocStatus('issued'); setMsg('発行しました！')
   }
 
-  async function handleSendEmail() {
-    if (!emailTo) return
-    setSending(true); setMsg('')
-    const res = await enviarEmailAction(doc.id, emailTo, emailMsg)
-    setSending(false)
-    if (res.error) { setMsg('Erro: ' + res.error); return }
-    setShowEmail(false); setMsg('メール送信しました！')
+  // ─── Email helpers ─────────────────────────────────────────────────────────
+  function genSubject() {
+    const veh = [vehicle?.make, vehicle?.model].filter(Boolean).join(' ')
+    return veh ? `【D'LEON】${veh} お見積書 ${doc.doc_number}` : `【D'LEON】お見積書 ${doc.doc_number}`
+  }
+
+  function genBody() {
+    const name   = customer?.name ?? ''
+    const make   = vehicle?.make ?? ''
+    const model  = vehicle?.model ?? ''
+    const plate  = vehicle?.plate ?? ''
+    const total  = Number(doc.total_amount ?? 0).toLocaleString('ja-JP')
+    const num    = doc.doc_number ?? ''
+    const honor  = name ? `${name} 御中` : '御担当者様'
+    return `${honor}
+
+いつもお世話になっております。
+D'LEONです。
+
+下記車両のお見積書をお送りいたします。
+
+車両：${make} ${model}
+ナンバー：${plate || '—'}
+見積番号：${num}
+見積金額：¥${total}（税込）
+
+添付のお見積書をご確認ください。
+
+ご不明点や修正のご希望がございましたら、
+お気軽にご連絡ください。
+
+何卒よろしくお願いいたします。
+
+D'LEON`
+  }
+
+  function openEmailModal() {
+    setEmailStep('compose')
+    setEmailTo(customer?.email ?? '')
+    setEmailCc('')
+    setEmailSubject(genSubject())
+    setEmailBody(genBody())
+    setSendErr('')
+    setShowEmail(true)
+    // Load history
+    getDeliveryHistoryAction(doc.id).then(r => setDeliveries(r.data))
+  }
+
+  function validateEmails(raw: string) {
+    if (!raw.trim()) return true
+    return raw.split(',').map(e => e.trim()).every(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
+  }
+
+  function handleReview() {
+    if (!emailTo.trim()) { setSendErr('Destinatário obrigatório'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTo.trim())) { setSendErr('Email inválido'); return }
+    if (emailCc && !validateEmails(emailCc)) { setSendErr('CC inválido'); return }
+    setSendErr(''); setEmailStep('review')
+  }
+
+  async function handleConfirmSend() {
+    setEmailStep('sending')
+    const toArr = [emailTo.trim()]
+    const ccArr = emailCc ? emailCc.split(',').map(e => e.trim()).filter(Boolean) : []
+    const res = await enviarEmailAction(doc.id, { to: toArr, cc: ccArr, subject: emailSubject, body: emailBody })
+    if (res.error) { setSendErr(res.error); setEmailStep('failed'); return }
+    setEmailStep('done')
+    setMsg('メール送信しました！')
+    getDeliveryHistoryAction(doc.id).then(r => setDeliveries(r.data))
   }
 
   const subtotal = items.reduce((s, it) => s + (it.subtotal || 0), 0)
@@ -445,10 +514,10 @@ export default function EstimativaShell({ doc, items: initItems, customer, vehic
               ⬇ PDF
             </a>
             <button
-              onClick={() => { setShowEmail(true) }}
+              onClick={openEmailModal}
               style={{ background: '#1B2744', color: '#fff', border: 'none', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
             >
-              ✉ メール送信
+              ✉ 送信
             </button>
             <button
               onClick={() => window.print()}
@@ -579,47 +648,181 @@ export default function EstimativaShell({ doc, items: initItems, customer, vehic
         </div>
       </div>
 
-      {/* Modal de envio por email */}
+      {/* ─── Modal de envio ─────────────────────────────────────────────────── */}
       {showEmail && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '28px', width: '480px', maxWidth: '90vw' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#F0EEE9' }}>✉ メール送信 — {doc.doc_number}</h3>
-              <button onClick={() => setShowEmail(false)} style={{ background: 'none', border: 'none', color: '#555', fontSize: '18px', cursor: 'pointer' }}>✕</button>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div style={{ background: '#141414', border: '1px solid #2A2A2A', borderRadius: '14px', width: '560px', maxWidth: '95vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 24px', borderBottom: '1px solid #1E1E1E' }}>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: '600' }}>✉ 見積書を送信 — {doc.doc_number}</div>
+                <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>
+                  {emailStep === 'compose'  && 'ステップ 1 / 2 — 内容を確認'}
+                  {emailStep === 'review'   && 'ステップ 2 / 2 — 送信内容の確認'}
+                  {emailStep === 'sending'  && '送信中...'}
+                  {emailStep === 'done'     && '送信完了'}
+                  {emailStep === 'failed'   && '送信失敗'}
+                </div>
+              </div>
+              <button onClick={() => setShowEmail(false)} style={{ background: 'none', border: 'none', color: '#555', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>✕</button>
             </div>
 
-            <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Para (email do cliente)</label>
-            <input
-              type="email"
-              value={emailTo}
-              onChange={e => setEmailTo(e.target.value)}
-              placeholder="cliente@email.com"
-              style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: '6px', padding: '8px 10px', color: '#F0EEE9', fontSize: '13px', marginBottom: '14px', boxSizing: 'border-box' }}
-            />
+            {/* Body */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px' }}>
 
-            <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Mensagem</label>
-            <textarea
-              value={emailMsg}
-              onChange={e => setEmailMsg(e.target.value)}
-              rows={6}
-              style={{ width: '100%', background: '#111', border: '1px solid #333', borderRadius: '6px', padding: '8px 10px', color: '#F0EEE9', fontSize: '12px', resize: 'vertical', marginBottom: '6px', boxSizing: 'border-box' }}
-            />
-            <p style={{ fontSize: '11px', color: '#555', marginBottom: '20px' }}>O PDF da 見積書 será anexado automaticamente.</p>
+              {/* ── COMPOSE ── */}
+              {emailStep === 'compose' && (
+                <>
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '5px' }}>
+                      Para * {!customer?.email && <span style={{ color: '#FF6B00' }}>— cliente sem email cadastrado</span>}
+                    </label>
+                    <input type="email" value={emailTo} onChange={e => setEmailTo(e.target.value)} placeholder="destinatario@email.com"
+                      style={{ width: '100%', background: '#111', border: '1px solid #2A2A2A', borderRadius: '7px', padding: '9px 12px', color: '#F0EEE9', fontSize: '13px', boxSizing: 'border-box' }} />
+                  </div>
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '5px' }}>CC (opcional, separados por vírgula)</label>
+                    <input type="text" value={emailCc} onChange={e => setEmailCc(e.target.value)} placeholder="cc@email.com, outro@email.com"
+                      style={{ width: '100%', background: '#111', border: '1px solid #2A2A2A', borderRadius: '7px', padding: '9px 12px', color: '#F0EEE9', fontSize: '13px', boxSizing: 'border-box' }} />
+                  </div>
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '5px' }}>Assunto</label>
+                    <input type="text" value={emailSubject} onChange={e => setEmailSubject(e.target.value)}
+                      style={{ width: '100%', background: '#111', border: '1px solid #2A2A2A', borderRadius: '7px', padding: '9px 12px', color: '#F0EEE9', fontSize: '13px', boxSizing: 'border-box' }} />
+                  </div>
+                  <div style={{ marginBottom: '14px' }}>
+                    <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '5px' }}>Mensagem</label>
+                    <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} rows={10}
+                      style={{ width: '100%', background: '#111', border: '1px solid #2A2A2A', borderRadius: '7px', padding: '9px 12px', color: '#F0EEE9', fontSize: '12px', lineHeight: '1.6', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                  </div>
+                  <div style={{ background: '#111', border: '1px solid #1E1E1E', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '18px' }}>📄</span>
+                    <div style={{ flex: 1, fontSize: '12px', color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {[(customer?.name ?? '').replace(/\s/g,'').slice(0,15) + (customer?.name ? '御中' : ''), '見積書', doc.doc_number].filter(Boolean).join('_')}.pdf
+                    </div>
+                    <a href={`/api/estimativas/${doc.id}/pdf`} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#378ADD', textDecoration: 'none', whiteSpace: 'nowrap' }}>Visualizar</a>
+                    <a href={`/api/estimativas/${doc.id}/pdf`} download style={{ fontSize: '11px', color: '#555', textDecoration: 'none', whiteSpace: 'nowrap' }}>↓ Baixar</a>
+                  </div>
+                  {sendErr && <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '10px' }}>{sendErr}</p>}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button
-                onClick={() => setShowEmail(false)}
-                style={{ background: '#111', color: '#888', border: '1px solid #333', borderRadius: '6px', padding: '8px 18px', fontSize: '12px', cursor: 'pointer' }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSendEmail}
-                disabled={sending || !emailTo}
-                style={{ background: '#1B2744', color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 20px', fontSize: '12px', fontWeight: '600', cursor: sending || !emailTo ? 'not-allowed' : 'pointer', opacity: sending || !emailTo ? 0.5 : 1 }}
-              >
-                {sending ? '送信中...' : '送信する'}
-              </button>
+                  {/* Histórico */}
+                  {deliveries.length > 0 && (
+                    <div style={{ marginTop: '20px', borderTop: '1px solid #1E1E1E', paddingTop: '16px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '600', color: '#555', marginBottom: '10px', letterSpacing: '0.05em' }}>送付履歴</div>
+                      {deliveries.map(d => {
+                        const p = d.payload ?? {}
+                        const isOk = d.event_type === 'sent'
+                        return (
+                          <div key={d.id} style={{ background: '#0D0D0D', border: '1px solid #1A1A1A', borderRadius: '8px', padding: '10px 12px', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                              <span style={{ fontSize: '12px', color: isOk ? '#1D9E75' : '#ef4444', fontWeight: '600' }}>{isOk ? '✓ Enviado' : '✗ Falhou'}</span>
+                              <span style={{ fontSize: '11px', color: '#555' }}>{new Date(d.created_at).toLocaleString('pt-BR')}</span>
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#888' }}>Para: {(p.to ?? []).join(', ')}</div>
+                            {p.cc?.length > 0 && <div style={{ fontSize: '12px', color: '#666' }}>CC: {p.cc.join(', ')}</div>}
+                            <div style={{ fontSize: '11px', color: '#555', marginTop: '2px' }}>{p.subject}</div>
+                            {p.error_message && <div style={{ fontSize: '11px', color: '#ef4444', marginTop: '2px' }}>Erro: {p.error_message}</div>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ── REVIEW ── */}
+              {emailStep === 'review' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                  {[
+                    { label: 'Para',      value: emailTo },
+                    { label: 'CC',        value: emailCc || '—' },
+                    { label: 'Assunto',   value: emailSubject },
+                    { label: 'Documento', value: doc.doc_number },
+                    { label: 'Cliente',   value: customer?.name ?? '—' },
+                    { label: 'Veículo',   value: [vehicle?.make, vehicle?.model].filter(Boolean).join(' ') || '—' },
+                    { label: 'Valor',     value: `¥${Number(doc.total_amount ?? 0).toLocaleString('ja-JP')}（税込）` },
+                    { label: 'Anexo',     value: '1 PDF' },
+                  ].map(row => (
+                    <div key={row.label} style={{ display: 'flex', gap: '12px', padding: '10px 0', borderBottom: '1px solid #1A1A1A' }}>
+                      <div style={{ width: '80px', fontSize: '11px', color: '#555', flexShrink: 0, paddingTop: '1px' }}>{row.label}</div>
+                      <div style={{ fontSize: '13px', wordBreak: 'break-all' }}>{row.value}</div>
+                    </div>
+                  ))}
+                  <div style={{ marginTop: '12px', padding: '10px 12px', background: '#111', borderRadius: '8px', fontSize: '11px', color: '#666', whiteSpace: 'pre-wrap', maxHeight: '120px', overflowY: 'auto', lineHeight: '1.6' }}>
+                    {emailBody}
+                  </div>
+                </div>
+              )}
+
+              {/* ── SENDING ── */}
+              {emailStep === 'sending' && (
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <div style={{ fontSize: '36px', marginBottom: '16px' }}>⏳</div>
+                  <div style={{ fontSize: '14px', color: '#888' }}>送信中...</div>
+                </div>
+              )}
+
+              {/* ── DONE ── */}
+              {emailStep === 'done' && (
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <div style={{ fontSize: '44px', marginBottom: '16px' }}>✅</div>
+                  <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '6px' }}>送信完了！</div>
+                  <div style={{ fontSize: '12px', color: '#555' }}>送信先: {emailTo}</div>
+                </div>
+              )}
+
+              {/* ── FAILED ── */}
+              {emailStep === 'failed' && (
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <div style={{ fontSize: '44px', marginBottom: '16px' }}>❌</div>
+                  <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '8px' }}>送信失敗</div>
+                  <div style={{ fontSize: '12px', color: '#ef4444', marginBottom: '16px' }}>{sendErr}</div>
+                  <div style={{ fontSize: '11px', color: '#555' }}>Dados preservados. Volte e tente novamente.</div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '14px 24px', borderTop: '1px solid #1E1E1E', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {emailStep === 'compose' && (
+                <>
+                  <button onClick={() => setShowEmail(false)} style={{ background: 'none', color: '#555', border: '1px solid #2A2A2A', borderRadius: '7px', padding: '8px 18px', fontSize: '12px', cursor: 'pointer' }}>
+                    Cancelar
+                  </button>
+                  <button onClick={handleReview} style={{ background: '#1B2744', color: '#fff', border: 'none', borderRadius: '7px', padding: '8px 20px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                    Revisar envio →
+                  </button>
+                </>
+              )}
+              {emailStep === 'review' && (
+                <>
+                  <button onClick={() => setEmailStep('compose')} style={{ background: 'none', color: '#888', border: '1px solid #2A2A2A', borderRadius: '7px', padding: '8px 18px', fontSize: '12px', cursor: 'pointer' }}>
+                    ← Voltar
+                  </button>
+                  <button onClick={handleConfirmSend} style={{ background: '#FF6B00', color: '#fff', border: 'none', borderRadius: '7px', padding: '8px 22px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}>
+                    Enviar agora
+                  </button>
+                </>
+              )}
+              {emailStep === 'failed' && (
+                <>
+                  <button onClick={() => setEmailStep('compose')} style={{ background: 'none', color: '#888', border: '1px solid #2A2A2A', borderRadius: '7px', padding: '8px 18px', fontSize: '12px', cursor: 'pointer' }}>
+                    ← Voltar
+                  </button>
+                  <button onClick={handleConfirmSend} style={{ background: '#1B2744', color: '#fff', border: 'none', borderRadius: '7px', padding: '8px 20px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                    ↻ Reenviar
+                  </button>
+                </>
+              )}
+              {emailStep === 'done' && (
+                <button onClick={() => setShowEmail(false)} style={{ marginLeft: 'auto', background: '#1D9E75', color: '#fff', border: 'none', borderRadius: '7px', padding: '8px 22px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
+                  Fechar
+                </button>
+              )}
+              {emailStep === 'sending' && (
+                <span style={{ fontSize: '12px', color: '#555', margin: '0 auto' }}>Aguarde...</span>
+              )}
             </div>
           </div>
         </div>
