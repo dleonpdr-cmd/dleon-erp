@@ -4,11 +4,21 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { Resend } from 'resend'
-import { renderToBuffer } from '@react-pdf/renderer'
+import { renderToBuffer, Font, Document } from '@react-pdf/renderer'
 import { createElement, type ComponentProps } from 'react'
 import type { ReactElement } from 'react'
-import { Document } from '@react-pdf/renderer'
+import path from 'path'
 import EstimativaPDF from '@/components/estimativas/EstimativaPDF'
+
+function registerFonts() {
+  Font.register({
+    family: 'NotoSansJP',
+    fonts: [
+      { src: path.join(process.cwd(), 'public/fonts/NotoSansJP-Regular.woff2'), fontWeight: 400 },
+      { src: path.join(process.cwd(), 'public/fonts/NotoSansJP-Bold.woff2'),    fontWeight: 700 },
+    ],
+  })
+}
 
 const PART_LABEL_JA: Record<string, string> = {
   roof:            'ルーフ',
@@ -261,6 +271,7 @@ export async function enviarEmailAction(
   const meta = (doc.snapshot as { meta?: Record<string, string> } | null)?.meta ?? {}
 
   // Gera PDF
+  registerFonts()
   const element = createElement(EstimativaPDF, { doc, items, customer, vehicle, meta })
   const pdfBuffer = await renderToBuffer(
     element as unknown as ReactElement<ComponentProps<typeof Document>>

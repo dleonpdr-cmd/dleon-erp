@@ -1,5 +1,5 @@
 import {
-  Document, Page, View, Text, StyleSheet, Font,
+  Document, Page, View, Text, StyleSheet,
 } from '@react-pdf/renderer'
 
 const NAVY = '#1B2744'
@@ -8,37 +8,37 @@ const BORD = '#D1D5DB'
 const LBKG = '#F5F6F7'
 
 const s = StyleSheet.create({
-  page: { fontFamily: 'Helvetica', fontSize: 9, color: '#1a1a1a', padding: '40px 48px 56px' },
+  page: { fontFamily: 'NotoSansJP', fontSize: 9, color: '#1a1a1a', padding: '40px 48px 56px' },
   row: { flexDirection: 'row' },
   col: { flexDirection: 'column' },
 
   // Header
-  title: { fontSize: 22, fontFamily: 'Helvetica-Bold', color: NAVY, letterSpacing: 6 },
+  title: { fontSize: 22, fontFamily: 'NotoSansJP', fontWeight: 700, color: NAVY, letterSpacing: 6 },
   titleUnder: { height: 2, backgroundColor: CYAN, width: 180, marginTop: 6 },
   metaText: { fontSize: 8, color: '#444', lineHeight: 1.8, textAlign: 'right' },
 
   // Customer
-  customerName: { fontSize: 13, fontFamily: 'Helvetica-Bold', marginBottom: 4 },
+  customerName: { fontSize: 13, fontFamily: 'NotoSansJP', fontWeight: 700, marginBottom: 4 },
   subjectText: { fontSize: 8, marginBottom: 2 },
   openingText: { fontSize: 7, color: '#555' },
 
   // Total box
   totalBox: { flexDirection: 'row', border: `1px solid ${NAVY}`, marginBottom: 6, marginTop: 12 },
-  totalLabel: { backgroundColor: NAVY, color: '#fff', padding: '8px 12px', fontSize: 9, fontFamily: 'Helvetica-Bold', justifyContent: 'center', width: 130 },
+  totalLabel: { backgroundColor: NAVY, color: '#fff', padding: '8px 12px', fontSize: 9, fontFamily: 'NotoSansJP', fontWeight: 700, justifyContent: 'center', width: 130 },
   totalValue: { flex: 1, alignItems: 'flex-end', justifyContent: 'center', padding: '6px 16px' },
-  totalNumber: { fontSize: 20, fontFamily: 'Helvetica-Bold' },
+  totalNumber: { fontSize: 20, fontFamily: 'NotoSansJP', fontWeight: 700 },
   condText: { fontSize: 7, color: '#666', marginBottom: 16 },
 
   // Section header
-  secHead: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: NAVY, marginBottom: 5 },
+  secHead: { fontSize: 8, fontFamily: 'NotoSansJP', fontWeight: 700, color: NAVY, marginBottom: 5 },
 
   // Table
   table: { marginBottom: 16 },
   thRow: { flexDirection: 'row', backgroundColor: NAVY },
-  th: { color: '#fff', fontSize: 8, fontFamily: 'Helvetica-Bold', padding: '4px 6px', borderRight: '1px solid #2d3a5c' },
+  th: { color: '#fff', fontSize: 8, fontFamily: 'NotoSansJP', fontWeight: 700, padding: '4px 6px', borderRight: '1px solid #2d3a5c' },
   tdRow: { flexDirection: 'row', borderBottom: `1px solid ${BORD}` },
   td: { fontSize: 8, padding: '4px 6px', borderRight: `1px solid ${BORD}` },
-  tdBold: { fontSize: 8, fontFamily: 'Helvetica-Bold', padding: '4px 6px', borderRight: `1px solid ${BORD}` },
+  tdBold: { fontSize: 8, fontFamily: 'NotoSansJP', fontWeight: 700, padding: '4px 6px', borderRight: `1px solid ${BORD}` },
   tdLabel: { fontSize: 8, padding: '4px 6px', backgroundColor: LBKG, borderRight: `1px solid ${BORD}`, width: 70 },
 
   // Totals
@@ -46,17 +46,17 @@ const s = StyleSheet.create({
   totCell: { fontSize: 8, padding: '5px 8px' },
   totCellR: { fontSize: 8, padding: '5px 8px', textAlign: 'right' },
   grandRow: { flexDirection: 'row', backgroundColor: NAVY },
-  grandCell: { color: '#fff', fontSize: 9, fontFamily: 'Helvetica-Bold', padding: '6px 8px' },
-  grandCellR: { color: '#fff', fontSize: 12, fontFamily: 'Helvetica-Bold', padding: '4px 8px', textAlign: 'right' },
+  grandCell: { color: '#fff', fontSize: 9, fontFamily: 'NotoSansJP', fontWeight: 700, padding: '6px 8px' },
+  grandCellR: { color: '#fff', fontSize: 12, fontFamily: 'NotoSansJP', fontWeight: 700, padding: '4px 8px', textAlign: 'right' },
 
   // Issuer
-  issuerTitle: { fontSize: 8, fontFamily: 'Helvetica-Bold', marginBottom: 4 },
+  issuerTitle: { fontSize: 8, fontFamily: 'NotoSansJP', fontWeight: 700, marginBottom: 4 },
   issuerText: { fontSize: 7.5, lineHeight: 1.8, color: '#333' },
   sealBox: { border: '1.5px solid #aaa', width: 60, height: 60, alignItems: 'center', justifyContent: 'center' },
   sealText: { fontSize: 14, color: '#aaa' },
 
   // Notes
-  notesTitle: { fontSize: 8, fontFamily: 'Helvetica-Bold', marginBottom: 4 },
+  notesTitle: { fontSize: 8, fontFamily: 'NotoSansJP', fontWeight: 700, marginBottom: 4 },
   notesBox: { border: `1px solid ${BORD}`, padding: '6px 10px', fontSize: 8, lineHeight: 1.8, color: '#333' },
 })
 

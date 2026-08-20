@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { renderToBuffer, Document } from '@react-pdf/renderer'
+import { renderToBuffer, Document, Font } from '@react-pdf/renderer'
 import { createClient } from '@supabase/supabase-js'
 import { createElement, type ReactElement, type ComponentProps } from 'react'
+import path from 'path'
 import EstimativaPDF from '@/components/estimativas/EstimativaPDF'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+function registerFonts() {
+  Font.register({
+    family: 'NotoSansJP',
+    fonts: [
+      { src: path.join(process.cwd(), 'public/fonts/NotoSansJP-Regular.woff2'), fontWeight: 400 },
+      { src: path.join(process.cwd(), 'public/fonts/NotoSansJP-Bold.woff2'),    fontWeight: 700 },
+    ],
+  })
+}
 
 export async function GET(
   _req: NextRequest,
@@ -43,6 +54,7 @@ export async function GET(
   const vehicle = vehicleRes.data ?? null
   const meta = (doc.snapshot as { meta?: Record<string, string> } | null)?.meta ?? {}
 
+  registerFonts()
   const element = createElement(EstimativaPDF, { doc, items, customer, vehicle, meta })
   // @react-pdf/renderer expects a Document element; cast via unknown to satisfy TS
   const buffer = await renderToBuffer(element as unknown as ReactElement<ComponentProps<typeof Document>>)
