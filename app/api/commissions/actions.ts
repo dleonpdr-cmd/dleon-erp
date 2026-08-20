@@ -342,7 +342,7 @@ export async function registerPayment(
   // Verificar se toda a comissão está paga
   const { data: allSplits } = await supabase
     .from('commission_splits')
-    .select('status')
+    .select('id, status')
     .eq('commission_id', commissionId)
   const allPaid = allSplits?.every(s => s.id === splitId ? newStatus === 'paid' : s.status === 'paid')
   const anyPartial = allSplits?.some(s => s.id === splitId ? newStatus !== 'pending' : s.status !== 'pending')

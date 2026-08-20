@@ -141,17 +141,17 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
           <div style={{ fontSize: '12px', fontWeight: '500', color: '#555' }}>COMISSÃO</div>
           <Link href={`/commissions/${c.id}`} style={{ fontSize: '12px', color: '#FF6B00', textDecoration: 'none' }}>
-            {commission?.data ? 'Ver detalhes →' : '+ Calcular comissão →'}
+            {commission ? 'Ver detalhes →' : '+ Calcular comissão →'}
           </Link>
         </div>
-        {commission?.data ? (
+        {commission ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div style={{ fontSize: '11px', color: '#555', marginBottom: '2px' }}>Valor base</div>
-              <div style={{ fontSize: '15px', fontWeight: '500', color: '#F0EEE9' }}>¥{Number(commission.data.total_amount).toLocaleString('ja-JP')}</div>
+              <div style={{ fontSize: '15px', fontWeight: '500', color: '#F0EEE9' }}>¥{Number(commission.total_amount).toLocaleString('ja-JP')}</div>
             </div>
-            <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '10px', background: `${commStatusColor[commission.data.status] ?? '#888'}22`, color: commStatusColor[commission.data.status] ?? '#888' }}>
-              {commStatusLabel[commission.data.status] ?? commission.data.status}
+            <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '10px', background: `${commStatusColor[commission.status] ?? '#888'}22`, color: commStatusColor[commission.status] ?? '#888' }}>
+              {commStatusLabel[commission.status] ?? commission.status}
             </span>
           </div>
         ) : (
