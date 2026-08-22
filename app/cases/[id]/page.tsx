@@ -6,6 +6,8 @@ import { AdvanceStatusButton } from '@/components/cases/AdvanceStatusButton'
 import { CriarEstimativaBtn } from '@/components/cases/CriarEstimativaBtn'
 import PaymentSection from '@/components/payments/PaymentSection'
 import { getPaymentsForCase } from '@/app/api/payments/actions'
+import { getWorkOrderByCaseId } from '@/app/api/work-orders/actions'
+import { WO_STATUS_LABEL, WO_STATUS_COLOR } from '@/app/api/work-orders/constants'
 
 export default async function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -26,12 +28,14 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     { data: estimativas },
     { data: commission },
     payments,
+    workOrder,
   ] = await Promise.all([
     supabase.from('vehicle_parts').select('*').eq('case_id', id),
     supabase.from('case_technicians').select('*, technicians(name, region)').eq('case_id', id),
     supabase.from('documents').select('id, doc_number, doc_status, total_amount, created_at').eq('case_id', id).eq('doc_type', 'estimate').order('created_at', { ascending: false }),
     supabase.from('commissions').select('id, status, total_amount').eq('case_id', id).single().then(r => r),
     getPaymentsForCase(id),
+    getWorkOrderByCaseId(id),
   ])
 
   const statusOrder = ['draft','quoted','approved','in_progress','done','invoiced','received','paid']
@@ -160,6 +164,34 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
           </div>
         ) : (
           <div style={{ fontSize: '13px', color: '#555' }}>Comissão ainda não calculada para este caso.</div>
+        )}
+      </div>
+
+      {/* Ordem de Serviço */}
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <div style={{ fontSize: '12px', fontWeight: '500', color: '#555' }}>ORDEM DE SERVIÇO</div>
+          {workOrder
+            ? <Link href={`/work-orders/${workOrder.id}`} style={{ fontSize: '12px', color: '#FF6B00', textDecoration: 'none' }}>Abrir OS →</Link>
+            : <Link href="/work-orders" style={{ fontSize: '12px', color: '#555', textDecoration: 'none' }}>+ Criar OS</Link>
+          }
+        </div>
+        {workOrder ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: '11px', color: '#555', marginBottom: '2px' }}>Número</div>
+              <div style={{ fontSize: '15px', fontWeight: '500', fontFamily: 'monospace', color: '#FF6B00' }}>{workOrder.wo_number}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', color: '#555', marginBottom: '2px' }}>Responsável</div>
+              <div style={{ fontSize: '13px' }}>{(workOrder as any).technicians?.name ?? '—'}</div>
+            </div>
+            <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '10px', background: `${WO_STATUS_COLOR[workOrder.status]}22`, color: WO_STATUS_COLOR[workOrder.status], border: `1px solid ${WO_STATUS_COLOR[workOrder.status]}44` }}>
+              {WO_STATUS_LABEL[workOrder.status]}
+            </span>
+          </div>
+        ) : (
+          <div style={{ fontSize: '13px', color: '#555' }}>Nenhuma OS criada para este caso.</div>
         )}
       </div>
 

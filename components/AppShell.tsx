@@ -11,6 +11,7 @@ const NAV = [
   { label: 'Veículos',         href: '/vehicles' },
   { label: 'Técnicos',         href: '/technicians' },
   { label: 'Tabela de Preços', href: '/precos' },
+  { label: 'Ordens de Serviço', href: '/work-orders' },
   { label: 'Comissões',        href: '/commissions' },
   { label: 'Pagamentos',       href: '/pagamentos' },
   { label: 'Usuários',         href: '/usuarios' },
