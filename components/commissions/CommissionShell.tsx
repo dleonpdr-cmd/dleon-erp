@@ -6,10 +6,15 @@ import {
   upsertSplit,
   deleteSplit,
   advanceCommissionStatus,
-  registerPayment,
   type Commission,
   type CommissionSplit,
 } from '@/app/api/commissions/actions'
+import {
+  solicitarLiberacao,
+  liberarComissao,
+  registrarRepasse,
+} from '@/app/api/repasse/actions'
+import { REPASSE_METHODS, REPASSE_ACCOUNTS } from '@/app/api/repasse/constants'
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -24,24 +29,31 @@ const BLOCK_COLOR: Record<string, string> = {
   technicians: '#1D9E75',
 }
 const STATUS_LABEL: Record<string, string> = {
-  calculated: 'Calculada',
-  reviewed: 'Conferida',
-  closed: 'Fechada',
-  pending_payment: 'Pgto pendente',
-  partial: 'Pgto parcial',
-  paid: 'Paga',
+  calculated:          'Calculada',
+  reviewed:            'Conferida',
+  closed:              'Fechada',
+  awaiting_liberation: 'Ag. liberação',
+  liberated:           'Liberada',
+  pending_payment:     'Pgto pendente',
+  partial:             'Pgto parcial',
+  paid:                'Paga',
 }
-const STATUS_FLOW: Array<Commission['status']> = [
-  'calculated', 'reviewed', 'closed', 'pending_payment', 'partial', 'paid',
+// Apenas os estados que avançam via botão genérico (até closed)
+const STATUS_FLOW_GENERIC: Array<Commission['status']> = [
+  'calculated', 'reviewed', 'closed',
 ]
 const STATUS_COLOR: Record<string, string> = {
-  calculated: '#378ADD',
-  reviewed: '#7F77DD',
-  closed: '#888',
-  pending_payment: '#FF6B00',
-  partial: '#FFB800',
-  paid: '#1D9E75',
+  calculated:          '#378ADD',
+  reviewed:            '#7F77DD',
+  closed:              '#888',
+  awaiting_liberation: '#FF6B00',
+  liberated:           '#1D9E75',
+  pending_payment:     '#FF6B00',
+  partial:             '#FFB800',
+  paid:                '#1D9E75',
 }
+
+const REPASSE_ENABLED_STATUSES = ['liberated', 'pending_payment', 'partial']
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -58,8 +70,11 @@ export default function CommissionShell({ caseId, caseAmount, initialCommission,
   const [commission, setCommission] = useState<Commission | null>(initialCommission)
   const [msg, setMsg] = useState('')
   const [pending, startTransition] = useTransition()
-  const [payModal, setPayModal] = useState<CommissionSplit | null>(null)
-  const [payForm, setPayForm] = useState({ amount: '', method: 'pix', account: '', notes: '' })
+  const [repasseModal, setRepasseModal] = useState<CommissionSplit | null>(null)
+  const [repasseForm, setRepasseForm] = useState({
+    amount: '', paid_at: new Date().toISOString().slice(0,10),
+    method: 'bank_transfer', account: '', reference: '', notes: '',
+  })
 
   const refresh = useCallback(async () => {
     const res = await calculateCommission(caseId)
@@ -76,17 +91,39 @@ export default function CommissionShell({ caseId, caseAmount, initialCommission,
     })
   }
 
-  // ── Avançar status ──────────────────────────────────────────────────────────
+  // ── Avançar status genérico (até closed) ───────────────────────────────────
   function handleAdvance() {
     if (!commission) return
-    const idx = STATUS_FLOW.indexOf(commission.status)
-    const next = STATUS_FLOW[idx + 1]
+    const idx = STATUS_FLOW_GENERIC.indexOf(commission.status as any)
+    const next = STATUS_FLOW_GENERIC[idx + 1]
     if (!next) return
     startTransition(async () => {
       const res = await advanceCommissionStatus(commission.id, caseId, next)
       if (!res.error) {
         setCommission(prev => prev ? { ...prev, status: next } : prev)
         setMsg(`Status: ${STATUS_LABEL[next]}`)
+      } else setMsg('Erro: ' + res.error)
+    })
+  }
+
+  // ── Solicitar liberação (closed → awaiting_liberation) ──────────────────────
+  function handleSolicitarLiberacao() {
+    startTransition(async () => {
+      const res = await solicitarLiberacao(caseId)
+      if (!res.error) {
+        setCommission(prev => prev ? { ...prev, status: 'awaiting_liberation' as any } : prev)
+        setMsg('Comissão enviada para liberação.')
+      } else setMsg('Erro: ' + res.error)
+    })
+  }
+
+  // ── Liberar comissão (awaiting_liberation → liberated) ─────────────────────
+  function handleLiberarComissao() {
+    startTransition(async () => {
+      const res = await liberarComissao(caseId)
+      if (!res.error) {
+        setCommission(prev => prev ? { ...prev, status: 'liberated' as any } : prev)
+        setMsg('Comissão liberada para repasse!')
       } else setMsg('Erro: ' + res.error)
     })
   }
@@ -144,19 +181,21 @@ export default function CommissionShell({ caseId, caseAmount, initialCommission,
     })
   }
 
-  // ── Registrar pagamento ─────────────────────────────────────────────────────
-  function handlePay() {
-    if (!commission || !payModal) return
+  // ── Registrar repasse ───────────────────────────────────────────────────────
+  function handleRepasse() {
+    if (!repasseModal) return
     startTransition(async () => {
-      const res = await registerPayment(payModal.id, commission.id, caseId, {
-        amount: Number(payForm.amount),
-        method: payForm.method,
-        account: payForm.account,
-        notes: payForm.notes,
+      const res = await registrarRepasse(repasseModal.id, caseId, {
+        amount:    Number(repasseForm.amount),
+        paid_at:   repasseForm.paid_at,
+        method:    repasseForm.method,
+        account:   repasseForm.account || undefined,
+        reference: repasseForm.reference || undefined,
+        notes:     repasseForm.notes || undefined,
       })
       if (!res.error) {
-        setPayModal(null)
-        setMsg('Pagamento registrado!')
+        setRepasseModal(null)
+        setMsg('Repasse registrado!')
         await refresh()
       } else setMsg('Erro: ' + res.error)
     })
@@ -169,8 +208,12 @@ export default function CommissionShell({ caseId, caseAmount, initialCommission,
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
-  const nextStatusIdx = commission ? STATUS_FLOW.indexOf(commission.status) + 1 : -1
-  const nextStatus = nextStatusIdx < STATUS_FLOW.length ? STATUS_FLOW[nextStatusIdx] : null
+  const status = commission?.status ?? ''
+  const genericIdx = STATUS_FLOW_GENERIC.indexOf(status as any)
+  const nextGeneric = genericIdx >= 0 && genericIdx < STATUS_FLOW_GENERIC.length - 1
+    ? STATUS_FLOW_GENERIC[genericIdx + 1]
+    : null
+  const repasseEnabled = REPASSE_ENABLED_STATUSES.includes(status)
 
   return (
     <div>
@@ -184,18 +227,31 @@ export default function CommissionShell({ caseId, caseAmount, initialCommission,
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           {commission && (
-            <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '10px', background: `${STATUS_COLOR[commission.status]}22`, color: STATUS_COLOR[commission.status] }}>
-              {STATUS_LABEL[commission.status]}
+            <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '10px', background: `${STATUS_COLOR[status]}22`, color: STATUS_COLOR[status] }}>
+              {STATUS_LABEL[status]}
             </span>
           )}
           <button onClick={handleCalculate} disabled={pending}
             style={{ fontSize: '12px', padding: '6px 14px', border: '1px solid #2A2A2A', borderRadius: '6px', background: '#1A1A1A', color: '#888', cursor: 'pointer' }}>
             {commission ? '↻ Recalcular' : '＋ Calcular'}
           </button>
-          {nextStatus && (
+          {/* Botões por estado */}
+          {nextGeneric && (
             <button onClick={handleAdvance} disabled={pending}
+              style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: '#2A2A2A', color: '#F0EEE9', border: 'none', cursor: 'pointer' }}>
+              → {STATUS_LABEL[nextGeneric]}
+            </button>
+          )}
+          {status === 'closed' && (
+            <button onClick={handleSolicitarLiberacao} disabled={pending}
               style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: '#FF6B00', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: '500' }}>
-              → {STATUS_LABEL[nextStatus]}
+              Solicitar liberação
+            </button>
+          )}
+          {status === 'awaiting_liberation' && (
+            <button onClick={handleLiberarComissao} disabled={pending}
+              style={{ fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: '#1D9E75', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: '500' }}>
+              ✓ Liberar comissão
             </button>
           )}
         </div>
@@ -270,7 +326,10 @@ export default function CommissionShell({ caseId, caseAmount, initialCommission,
                         technicians={technicians}
                         onSave={(field, value) => handleSaveSplit(sp, field, value)}
                         onDelete={() => handleDeleteSplit(sp.id)}
-                        onPay={() => { setPayModal(sp); setPayForm({ amount: String(sp.amount - sp.paid_amount), method: 'pix', account: '', notes: '' }) }}
+                        onRepasse={repasseEnabled ? () => {
+                          setRepasseModal(sp)
+                          setRepasseForm({ amount: String(Math.max(0, sp.amount - sp.paid_amount)), paid_at: new Date().toISOString().slice(0,10), method: 'bank_transfer', account: '', reference: '', notes: '' })
+                        } : undefined}
                         pending={pending}
                       />
                     ))}
@@ -290,36 +349,68 @@ export default function CommissionShell({ caseId, caseAmount, initialCommission,
         </>
       )}
 
-      {/* Modal de pagamento */}
-      {payModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: '#141414', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '24px', width: '380px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: '500', marginBottom: '16px' }}>Registrar Pagamento — {payModal.name}</h3>
-            <div style={{ marginBottom: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#888', marginBottom: '12px' }}>
-                <span>Total: ¥{Number(payModal.amount).toLocaleString('ja-JP')}</span>
-                <span>Já pago: ¥{Number(payModal.paid_amount).toLocaleString('ja-JP')}</span>
-                <span style={{ color: '#FF6B00' }}>Saldo: ¥{(payModal.amount - payModal.paid_amount).toLocaleString('ja-JP')}</span>
+      {/* Modal de repasse */}
+      {repasseModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ background: '#141414', border: '1px solid #2A2A2A', borderRadius: '12px', padding: '24px', width: '420px', maxWidth: '95vw' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px' }}>Registrar Repasse</h3>
+            <p style={{ fontSize: '12px', color: '#FF6B00', marginBottom: '16px' }}>{repasseModal.name}</p>
+            {/* KPIs do split */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+              {[
+                { label: 'A receber', value: repasseModal.amount, color: '#F0EEE9' },
+                { label: 'Já pago', value: repasseModal.paid_amount, color: '#1D9E75' },
+                { label: 'Saldo', value: repasseModal.amount - repasseModal.paid_amount, color: '#FF6B00' },
+              ].map(k => (
+                <div key={k.label} style={{ background: '#1A1A1A', borderRadius: '8px', padding: '10px' }}>
+                  <div style={{ fontSize: '10px', color: '#555', marginBottom: '4px' }}>{k.label}</div>
+                  <div style={{ fontSize: '14px', fontWeight: '600', color: k.color }}>¥{Number(k.value).toLocaleString('ja-JP')}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+              <div>
+                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Valor *</label>
+                <input type="number" value={repasseForm.amount} onChange={e => setRepasseForm(p => ({ ...p, amount: e.target.value }))}
+                  style={{ ...input, width: '100%' }} placeholder="¥" />
               </div>
-              <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Valor *</label>
-              <input type="number" value={payForm.amount} onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))} style={{ ...input, marginBottom: '10px' }} />
+              <div>
+                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Data *</label>
+                <input type="date" value={repasseForm.paid_at} onChange={e => setRepasseForm(p => ({ ...p, paid_at: e.target.value }))}
+                  style={{ ...input, width: '100%' }} />
+              </div>
+            </div>
+            <div style={{ marginBottom: '10px' }}>
               <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Método</label>
-              <select value={payForm.method} onChange={e => setPayForm(p => ({ ...p, method: e.target.value }))} style={{ ...input, marginBottom: '10px' }}>
-                <option value="pix">PIX</option>
-                <option value="bank_transfer">Transferência bancária</option>
-                <option value="cash">Dinheiro</option>
-                <option value="other">Outro</option>
+              <select value={repasseForm.method} onChange={e => setRepasseForm(p => ({ ...p, method: e.target.value }))} style={{ ...input, width: '100%' }}>
+                {Object.entries(REPASSE_METHODS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
-              <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Conta / referência</label>
-              <input value={payForm.account} onChange={e => setPayForm(p => ({ ...p, account: e.target.value }))} style={{ ...input, marginBottom: '10px' }} />
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Conta utilizada</label>
+              <select value={repasseForm.account} onChange={e => setRepasseForm(p => ({ ...p, account: e.target.value }))} style={{ ...input, width: '100%' }}>
+                <option value="">— selecionar —</option>
+                {REPASSE_ACCOUNTS.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Referência</label>
+              <input value={repasseForm.reference} onChange={e => setRepasseForm(p => ({ ...p, reference: e.target.value }))}
+                style={{ ...input, width: '100%' }} placeholder="Número de comprovante, etc." />
+            </div>
+            <div style={{ marginBottom: '16px' }}>
               <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>Observação</label>
-              <input value={payForm.notes} onChange={e => setPayForm(p => ({ ...p, notes: e.target.value }))} style={input} />
+              <input value={repasseForm.notes} onChange={e => setRepasseForm(p => ({ ...p, notes: e.target.value }))}
+                style={{ ...input, width: '100%' }} />
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => setPayModal(null)} style={{ flex: 1, height: '38px', background: 'none', border: '1px solid #2A2A2A', borderRadius: '6px', color: '#888', cursor: 'pointer', fontSize: '13px' }}>Cancelar</button>
-              <button onClick={handlePay} disabled={pending || !payForm.amount}
-                style={{ flex: 2, height: '38px', background: '#1D9E75', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: '500', opacity: (pending || !payForm.amount) ? 0.5 : 1 }}>
-                {pending ? 'Salvando...' : 'Confirmar pagamento'}
+              <button onClick={() => setRepasseModal(null)}
+                style={{ flex: 1, height: '38px', background: 'none', border: '1px solid #2A2A2A', borderRadius: '6px', color: '#888', cursor: 'pointer', fontSize: '13px' }}>
+                Cancelar
+              </button>
+              <button onClick={handleRepasse} disabled={pending || !repasseForm.amount || !repasseForm.paid_at}
+                style={{ flex: 2, height: '38px', background: '#1D9E75', border: 'none', borderRadius: '6px', color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: '500', opacity: (pending || !repasseForm.amount) ? 0.5 : 1 }}>
+                {pending ? 'Registrando...' : 'Registrar repasse'}
               </button>
             </div>
           </div>
@@ -332,14 +423,14 @@ export default function CommissionShell({ caseId, caseAmount, initialCommission,
 // ─── SplitRow ──────────────────────────────────────────────────────────────────
 
 function SplitRow({
-  split, blockAmount, technicians, onSave, onDelete, onPay, pending,
+  split, blockAmount, technicians, onSave, onDelete, onRepasse, pending,
 }: {
   split: CommissionSplit
   blockAmount: number
   technicians: { id: string; name: string; region: string | null }[]
   onSave: (field: string, value: any) => void
   onDelete: () => void
-  onPay: () => void
+  onRepasse?: () => void
   pending: boolean
 }) {
   const paidPct = split.amount > 0 ? Math.round((split.paid_amount / split.amount) * 100) : 0
@@ -394,14 +485,14 @@ function SplitRow({
       ) : (
         <span style={{ fontSize: '12px', color: '#1D9E75', textAlign: 'right' }}>¥{Math.round(split.amount).toLocaleString('ja-JP')}</span>
       )}
-      {/* Status + pagar */}
+      {/* Status + repasse */}
       <button
-        onClick={onPay}
-        disabled={split.status === 'paid' || pending}
-        style={{ fontSize: '10px', padding: '3px 6px', border: 'none', borderRadius: '4px', background: split.status === 'paid' ? 'rgba(29,158,117,0.15)' : '#2A2A2A', color: statusColor, cursor: split.status === 'paid' ? 'default' : 'pointer', whiteSpace: 'nowrap' }}
+        onClick={onRepasse}
+        disabled={!onRepasse || split.status === 'paid' || pending}
+        style={{ fontSize: '10px', padding: '3px 6px', border: 'none', borderRadius: '4px', background: split.status === 'paid' ? 'rgba(29,158,117,0.15)' : onRepasse ? '#2A2A2A' : '#1A1A1A', color: statusColor, cursor: (onRepasse && split.status !== 'paid') ? 'pointer' : 'default', whiteSpace: 'nowrap' }}
         title={`Pago: ¥${split.paid_amount.toLocaleString('ja-JP')} / ¥${split.amount.toLocaleString('ja-JP')}`}
       >
-        {split.status === 'paid' ? '✓ Pago' : split.status === 'partial' ? `${paidPct}%` : 'Pagar'}
+        {split.status === 'paid' ? '✓ Pago' : split.status === 'partial' ? `${paidPct}%` : onRepasse ? 'Repassar' : '—'}
       </button>
       {/* Remover */}
       <button onClick={onDelete} style={{ background: 'none', border: 'none', color: '#E24B4A', cursor: 'pointer', fontSize: '16px', padding: 0 }}>×</button>
