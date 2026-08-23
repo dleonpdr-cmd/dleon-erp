@@ -5,13 +5,14 @@ import { usePathname } from 'next/navigation'
 
 const NAV = [
   { label: 'Dashboard',        href: '/' },
+  { label: 'Operações',        href: '/operations' },
   { label: 'Casos',            href: '/cases' },
+  { label: 'Ordens de Serviço', href: '/work-orders' },
   { label: '見積書',            href: '/estimativas' },
   { label: 'Clientes',         href: '/customers' },
   { label: 'Veículos',         href: '/vehicles' },
   { label: 'Técnicos',         href: '/technicians' },
   { label: 'Tabela de Preços', href: '/precos' },
-  { label: 'Ordens de Serviço', href: '/work-orders' },
   { label: 'Comissões',        href: '/commissions' },
   { label: 'Pagamentos',       href: '/pagamentos' },
   { label: 'Usuários',         href: '/usuarios' },
