@@ -55,6 +55,49 @@ export const QC_CHECKS = [
   { key: 'final_note',        label: 'Observação final' },
 ]
 
+// ─── Utilitários de tempo ────────────────────────────────────────────────────
+
+export function formatWorkedTime(minutes: number): string {
+  if (minutes < 1) return '—'
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m}min`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}min`
+}
+
+// ─── Próxima ação ─────────────────────────────────────────────────────────────
+
+export function getNextAction(wo: {
+  status: string
+  items: { status: string }[]
+  pauses: { ended_at: string | null }[]
+}): { label: string; action: string } {
+  const pendingPanels = wo.items.filter(i => i.status === 'pending').length
+  const issuePanels   = wo.items.filter(i => i.status === 'issue').length
+
+  switch (wo.status) {
+    case 'waiting':
+      return { label: 'Iniciar reparo', action: 'start' }
+    case 'paused':
+      return { label: 'Retomar reparo', action: 'resume' }
+    case 'in_progress':
+      if (pendingPanels > 0)
+        return { label: `Concluir ${pendingPanels} painel(is) restante(s)`, action: 'panels' }
+      return { label: 'Finalizar reparo', action: 'finish' }
+    case 'waiting_qc':
+      return { label: 'Aguardando revisão de QC', action: 'qc' }
+    case 'qc_rejected':
+      return { label: issuePanels > 0 ? `Corrigir ${issuePanels} painel(is)` : 'Retornar para reparo', action: 'return' }
+    case 'completed':
+      return { label: 'Marcar como pronto para faturar', action: 'invoice' }
+    case 'ready_to_invoice':
+      return { label: 'Criar 請求書', action: 'create_invoice' }
+    default:
+      return { label: '—', action: 'none' }
+  }
+}
+
 export const WO_EVENT_LABEL: Record<string, string> = {
   created:           'OS criada',
   started:           'Reparo iniciado',
