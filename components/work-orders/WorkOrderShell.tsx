@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import type { WorkOrder } from '@/app/api/work-orders/actions'
 import {
   startRepair,
@@ -64,18 +64,26 @@ export default function WorkOrderShell({ workOrder: initial, technicians }: Prop
   const nextAction = getNextAction(wo)
   const activePause = wo.pauses.find(p => !p.ended_at)
 
-  // Compute worked time
-  const workedMin = (() => {
-    if (!wo.started_at) return 0
-    const end = wo.finished_at ? new Date(wo.finished_at) : new Date()
-    const total = (end.getTime() - new Date(wo.started_at).getTime()) / 60000
-    const paused = wo.pauses.reduce((acc, p) => {
-      const ps = new Date(p.started_at).getTime()
-      const pe = p.ended_at ? new Date(p.ended_at).getTime() : Date.now()
-      return acc + (pe - ps) / 60000
-    }, 0)
-    return Math.max(0, Math.round(total - paused))
-  })()
+  // Compute worked time (client-only to avoid hydration mismatch)
+  const [workedMin, setWorkedMin] = useState(0)
+  useEffect(() => {
+    const compute = () => {
+      if (!wo.started_at) return 0
+      const end = wo.finished_at ? new Date(wo.finished_at) : new Date()
+      const total = (end.getTime() - new Date(wo.started_at).getTime()) / 60000
+      const paused = wo.pauses.reduce((acc, p) => {
+        const ps = new Date(p.started_at).getTime()
+        const pe = p.ended_at ? new Date(p.ended_at).getTime() : Date.now()
+        return acc + (pe - ps) / 60000
+      }, 0)
+      return Math.max(0, Math.round(total - paused))
+    }
+    setWorkedMin(compute())
+    if (wo.status === 'in_progress') {
+      const t = setInterval(() => setWorkedMin(compute()), 30000)
+      return () => clearInterval(t)
+    }
+  }, [wo.started_at, wo.finished_at, wo.pauses, wo.status])
 
   function act(fn: () => Promise<void>) {
     startT(async () => {
@@ -223,7 +231,7 @@ export default function WorkOrderShell({ workOrder: initial, technicians }: Prop
         ].map(k => (
           <div key={k.label} style={{ background: '#141414', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '14px' }}>
             <div style={{ fontSize: '10px', color: '#555', marginBottom: '4px' }}>{k.label.toUpperCase()}</div>
-            <div style={{ fontSize: '13px', fontWeight: '500', color: k.color }}>{k.value}</div>
+            <div suppressHydrationWarning style={{ fontSize: '13px', fontWeight: '500', color: k.color }}>{k.value}</div>
           </div>
         ))}
       </div>
@@ -274,7 +282,7 @@ export default function WorkOrderShell({ workOrder: initial, technicians }: Prop
               <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', background: `${ITEM_STATUS_COLOR[item.status]}22`, color: ITEM_STATUS_COLOR[item.status], textAlign: 'center' }}>
                 {ITEM_STATUS_LABEL[item.status]}
               </span>
-              <div style={{ fontSize: '10px', color: '#555' }}>
+              <div suppressHydrationWarning style={{ fontSize: '10px', color: '#555' }}>
                 {item.completed_at ? new Date(item.completed_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
               </div>
               {['in_progress', 'waiting'].includes(wo.status) && (
@@ -330,7 +338,7 @@ export default function WorkOrderShell({ workOrder: initial, technicians }: Prop
           ? <div style={{ fontSize: '13px', color: '#555' }}>Nenhum evento registrado.</div>
           : [...wo.events].reverse().map(ev => (
             <div key={ev.id} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: '1px solid #1A1A1A' }}>
-              <div style={{ fontSize: '11px', color: '#555', minWidth: '90px' }}>
+              <div suppressHydrationWarning style={{ fontSize: '11px', color: '#555', minWidth: '90px' }}>
                 {new Date(ev.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
               </div>
               <div style={{ flex: 1 }}>
