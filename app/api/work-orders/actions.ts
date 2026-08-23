@@ -144,7 +144,7 @@ export async function getWorkOrder(workOrderId: string): Promise<WorkOrder | nul
         customers(name, phone),
         vehicles(make, model, year, plate)
       ),
-      technicians(id, name)
+      technicians!work_orders_responsible_technician_id_fkey(id, name)
     `)
     .eq('id', workOrderId)
     .single()
