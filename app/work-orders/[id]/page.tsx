@@ -6,13 +6,14 @@ import { getWorkOrder } from '@/app/api/work-orders/actions'
 import { WO_STATUS_LABEL, WO_STATUS_COLOR } from '@/app/api/work-orders/constants'
 import WorkOrderShell from '@/components/work-orders/WorkOrderShell'
 
-export default async function WorkOrderDetailPage({ params }: { params: { id: string } }) {
+export default async function WorkOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const [wo, techsRes] = await Promise.all([
-    getWorkOrder(params.id),
+    getWorkOrder(id),
     supabase.from('technicians').select('id, name').order('name'),
   ])
 
