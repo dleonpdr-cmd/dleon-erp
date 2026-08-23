@@ -20,13 +20,15 @@ export default function NewCasePage() {
   const supabase = createSupabaseBrowserClient()
 
   // ── Formulário principal
-  const [form, setForm] = useState({ customer_id: '', vehicle_id: '', technician_id: '', type: 'insurance', region: '', notes: '' })
+  const [form, setForm] = useState({ customer_id: '', vehicle_id: '', technician_id: '', type: 'insurance', region: '', notes: '', operation_id: '' })
   const [customers,   setCustomers]   = useState<any[]>([])
   const [vehicles,    setVehicles]    = useState<any[]>([])
   const [technicians, setTechnicians] = useState<any[]>([])
+  const [operations,  setOperations]  = useState<any[]>([])
   const [parts, setParts] = useState([{ part_name: 'Roof', dent_count: 0, unit_price: 1000 }])
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
+  const [opWarn,  setOpWarn]  = useState<string | null>(null)
 
   // ── Modal novo cliente
   const [showNewCustomer, setShowNewCustomer] = useState(false)
@@ -44,7 +46,31 @@ export default function NewCasePage() {
   useEffect(() => {
     supabase.from('customers').select('id, name').order('name').then(({ data }) => setCustomers(data ?? []))
     supabase.from('technicians').select('id, name').eq('active', true).order('name').then(({ data }) => setTechnicians(data ?? []))
+    supabase.from('operations').select('id, name, customer_id, budget_type_default, customers(name)')
+      .not('status', 'eq', 'cancelled').order('name').then(({ data }) => setOperations(data ?? []))
   }, [])
+
+  // ── Selecionar operação com validação de cliente
+  function handleSelectOperation(opId: string) {
+    setOpWarn(null)
+    const op = operations.find(o => o.id === opId)
+    if (!op) { setForm(f => ({ ...f, operation_id: '' })); return }
+
+    // Auto-fill cliente se estiver vazio
+    if (op.customer_id && !form.customer_id) {
+      setForm(f => ({ ...f, operation_id: opId, customer_id: op.customer_id, vehicle_id: '' }))
+      return
+    }
+
+    // Conflito: operação tem cliente diferente do selecionado
+    if (op.customer_id && form.customer_id && op.customer_id !== form.customer_id) {
+      const opCustomerName = op.customers?.name ?? op.customer_id
+      const selCustomerName = customers.find(c => c.id === form.customer_id)?.name ?? form.customer_id
+      setOpWarn(`Conflito: a operação "${op.name}" pertence a "${opCustomerName}", mas o cliente selecionado é "${selCustomerName}". Corrija antes de salvar.`)
+    }
+
+    setForm(f => ({ ...f, operation_id: opId }))
+  }
 
   useEffect(() => {
     if (!form.customer_id) { setVehicles([]); return }
@@ -104,6 +130,7 @@ export default function NewCasePage() {
     if (!form.customer_id)   { setError('Selecione um cliente.'); return }
     if (!form.vehicle_id)    { setError('Selecione um veículo.'); return }
     if (!form.technician_id) { setError('Selecione um técnico.'); return }
+    if (opWarn)              { setError('Resolva o conflito de operação antes de salvar.'); return }
     setLoading(true); setError(null)
 
     const case_number = generateCaseNumber()
@@ -111,6 +138,7 @@ export default function NewCasePage() {
       case_number, customer_id: form.customer_id, vehicle_id: form.vehicle_id,
       type: form.type, region: form.region, notes: form.notes,
       quote_amount: subtotal, tax_amount: tax, total_amount: total, status: 'draft',
+      operation_id: form.operation_id || null,
     }]).select().single()
 
     if (caseError || !caseData) { setError('Erro ao criar caso: ' + (caseError?.message ?? '')); setLoading(false); return }
@@ -161,6 +189,38 @@ export default function NewCasePage() {
         )}
 
         <form onSubmit={handleSubmit}>
+          {/* 0. Operação / Bloco */}
+          <div style={sectionStyle}>
+            <div style={sectionTitle}>OPERAÇÃO / BLOCO (opcional)</div>
+            <select
+              value={form.operation_id}
+              onChange={e => handleSelectOperation(e.target.value)}
+              style={{ ...selectStyle, color: form.operation_id ? '#F0EEE9' : '#555' }}
+            >
+              <option value="">Sem operação (caso independente)</option>
+              {operations.map(op => (
+                <option key={op.id} value={op.id}>
+                  {op.name}{op.customers?.name ? ` · ${op.customers.name}` : ''}
+                </option>
+              ))}
+            </select>
+            {form.operation_id && (() => {
+              const op = operations.find(o => o.id === form.operation_id)
+              if (!op) return null
+              return (
+                <div style={{ marginTop: '8px', fontSize: '11px', color: '#555' }}>
+                  {op.customers?.name && <span>Cliente: <strong style={{ color: '#888' }}>{op.customers.name}</strong> · </span>}
+                  Orçamento padrão: <strong style={{ color: '#888' }}>{op.budget_type_default === 'batch' ? 'Lote / Pátio' : 'Individual'}</strong>
+                </div>
+              )
+            })()}
+            {opWarn && (
+              <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '6px', fontSize: '12px', background: 'rgba(226,75,74,0.1)', border: '1px solid #E24B4A', color: '#F09595' }}>
+                ⚠ {opWarn}
+              </div>
+            )}
+          </div>
+
           {/* 1. Identificação */}
           <div style={sectionStyle}>
             <div style={sectionTitle}>1. IDENTIFICAÇÃO</div>

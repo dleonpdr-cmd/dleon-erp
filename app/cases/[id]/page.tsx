@@ -9,6 +9,7 @@ import { getPaymentsForCase } from '@/app/api/payments/actions'
 import { getWorkOrderByCaseId } from '@/app/api/work-orders/actions'
 import { WO_STATUS_LABEL, WO_STATUS_COLOR } from '@/app/api/work-orders/constants'
 import CreateOSBtn from '@/components/work-orders/CreateOSBtn'
+import OperationSection from '@/components/cases/OperationSection'
 
 export default async function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -18,7 +19,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
 
   const { data: c } = await supabase
     .from('cases')
-    .select('*, customers(name, phone, email), vehicles(make, model, year, plate)')
+    .select('*, customers(name, phone, email), vehicles(make, model, year, plate), operations(id, name, customer_id, customers(name))')
     .eq('id', id)
     .single()
   if (!c) redirect('/cases')
@@ -31,6 +32,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     payments,
     workOrder,
     techsRes,
+    opsRes,
   ] = await Promise.all([
     supabase.from('vehicle_parts').select('*').eq('case_id', id),
     supabase.from('case_technicians').select('*, technicians(name, region)').eq('case_id', id),
@@ -39,7 +41,21 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     getPaymentsForCase(id),
     getWorkOrderByCaseId(id),
     supabase.from('technicians').select('id, name').order('name'),
+    supabase.from('operations').select('id, name, customer_id, customers(name)').not('status', 'eq', 'cancelled').order('name'),
   ])
+
+  // Operação atual do caso
+  const caseOp: any = (c as any).operations ?? null
+  const currentOperation = caseOp ? {
+    id: caseOp.id,
+    name: caseOp.name,
+    customer_name: (caseOp.customers as any)?.name ?? null,
+  } : null
+  const allOperations = (opsRes.data ?? []).map((o: any) => ({
+    id: o.id,
+    name: o.name,
+    customer_name: (o.customers as any)?.name ?? null,
+  }))
 
   const statusOrder = ['draft','quoted','approved','in_progress','done','invoiced','received','paid']
   const statusLabel: any = { draft:'Rascunho', quoted:'Orçamento', approved:'Aprovado', in_progress:'Em execução', done:'Concluído', invoiced:'Faturado', received:'Recebido', paid:'Pago' }
@@ -197,6 +213,13 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
           <div style={{ fontSize: '13px', color: '#555' }}>Nenhuma OS criada para este caso.</div>
         )}
       </div>
+
+      {/* Operação */}
+      <OperationSection
+        caseId={c.id}
+        currentOperation={currentOperation}
+        allOperations={allOperations}
+      />
 
       {/* Pagamentos */}
       <PaymentSection
