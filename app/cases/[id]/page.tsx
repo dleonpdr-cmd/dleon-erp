@@ -8,6 +8,7 @@ import PaymentSection from '@/components/payments/PaymentSection'
 import { getPaymentsForCase } from '@/app/api/payments/actions'
 import { getWorkOrderByCaseId } from '@/app/api/work-orders/actions'
 import { WO_STATUS_LABEL, WO_STATUS_COLOR } from '@/app/api/work-orders/constants'
+import CreateOSBtn from '@/components/work-orders/CreateOSBtn'
 
 export default async function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -29,6 +30,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     { data: commission },
     payments,
     workOrder,
+    techsRes,
   ] = await Promise.all([
     supabase.from('vehicle_parts').select('*').eq('case_id', id),
     supabase.from('case_technicians').select('*, technicians(name, region)').eq('case_id', id),
@@ -36,6 +38,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     supabase.from('commissions').select('id, status, total_amount').eq('case_id', id).single().then(r => r),
     getPaymentsForCase(id),
     getWorkOrderByCaseId(id),
+    supabase.from('technicians').select('id, name').order('name'),
   ])
 
   const statusOrder = ['draft','quoted','approved','in_progress','done','invoiced','received','paid']
@@ -173,7 +176,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
           <div style={{ fontSize: '12px', fontWeight: '500', color: '#555' }}>ORDEM DE SERVIÇO</div>
           {workOrder
             ? <Link href={`/work-orders/${workOrder.id}`} style={{ fontSize: '12px', color: '#FF6B00', textDecoration: 'none' }}>Abrir OS →</Link>
-            : <Link href="/work-orders" style={{ fontSize: '12px', color: '#555', textDecoration: 'none' }}>+ Criar OS</Link>
+            : <CreateOSBtn caseId={c.id} documents={(estimativas ?? []) as any} technicians={techsRes.data ?? []} />
           }
         </div>
         {workOrder ? (
