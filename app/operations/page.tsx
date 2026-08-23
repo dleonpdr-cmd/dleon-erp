@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import AppShell from '@/components/AppShell'
-import { getOperations, OP_STATUS_LABEL, OP_STATUS_COLOR } from '@/app/api/operations/actions'
+import { getOperations } from '@/app/api/operations/actions'
+import { OP_STATUS_LABEL, OP_STATUS_COLOR } from '@/app/api/operations/constants'
 
 export default async function OperationsPage() {
   const supabase = await createSupabaseServerClient()

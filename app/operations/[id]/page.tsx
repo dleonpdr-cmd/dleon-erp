@@ -4,8 +4,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import AppShell from '@/components/AppShell'
 import {
   getOperation, getOperationCases, getOperationMembers,
-  OP_STATUS_LABEL, OP_STATUS_COLOR, MEMBER_ROLE_LABEL,
 } from '@/app/api/operations/actions'
+import { OP_STATUS_LABEL, OP_STATUS_COLOR, MEMBER_ROLE_LABEL } from '@/app/api/operations/constants'
 import OperationShell from '@/components/operations/OperationShell'
 
 export default async function OperationDetailPage({ params }: { params: Promise<{ id: string }> }) {

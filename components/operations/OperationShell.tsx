@@ -4,9 +4,12 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import {
   updateOperation, addOperationMember, linkCaseToOperation,
-  OP_STATUS_LABEL, OP_STATUS_COLOR, MEMBER_ROLE_LABEL,
-  type Operation, type OperationMember, type OperationStatus, type MemberRole, type BudgetTypeDefault,
+  type Operation, type OperationMember,
 } from '@/app/api/operations/actions'
+import {
+  OP_STATUS_LABEL, OP_STATUS_COLOR, MEMBER_ROLE_LABEL,
+  type OperationStatus, type MemberRole, type BudgetTypeDefault,
+} from '@/app/api/operations/constants'
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
