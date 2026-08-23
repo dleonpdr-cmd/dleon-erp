@@ -187,7 +187,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
             </div>
             <div>
               <div style={{ fontSize: '11px', color: '#555', marginBottom: '2px' }}>Responsável</div>
-              <div style={{ fontSize: '13px' }}>{(workOrder as any).technicians?.name ?? '—'}</div>
+              <div style={{ fontSize: '13px' }}>—</div>
             </div>
             <span style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '10px', background: `${WO_STATUS_COLOR[workOrder.status]}22`, color: WO_STATUS_COLOR[workOrder.status], border: `1px solid ${WO_STATUS_COLOR[workOrder.status]}44` }}>
               {WO_STATUS_LABEL[workOrder.status]}

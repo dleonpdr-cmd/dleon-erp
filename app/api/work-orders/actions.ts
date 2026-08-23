@@ -143,20 +143,22 @@ export async function getWorkOrder(workOrderId: string): Promise<WorkOrder | nul
       cases!inner(case_number, total_amount,
         customers(name, phone),
         vehicles(make, model, year, plate)
-      ),
-      technicians!work_orders_responsible_technician_id_fkey(id, name)
+      )
     `)
     .eq('id', workOrderId)
     .single()
 
   if (!wo) return null
 
-  const [itemsRes, techsRes, pausesRes, eventsRes, qcRes] = await Promise.all([
+  const [itemsRes, techsRes, pausesRes, eventsRes, qcRes, responsibleRes] = await Promise.all([
     supabase.from('work_order_items').select('*').eq('work_order_id', workOrderId).order('sort_order'),
     supabase.from('work_order_technicians').select('*, technicians(id, name, role)').eq('work_order_id', workOrderId).is('removed_at', null),
     supabase.from('work_order_pauses').select('*').eq('work_order_id', workOrderId).order('started_at'),
     supabase.from('work_order_events').select('*').eq('work_order_id', workOrderId).order('created_at'),
     supabase.from('quality_checks').select('*, quality_check_items(*)').eq('work_order_id', workOrderId).order('created_at', { ascending: false }).limit(1),
+    wo.responsible_technician_id
+      ? supabase.from('technicians').select('id, name').eq('id', wo.responsible_technician_id).single()
+      : Promise.resolve({ data: null }),
   ])
 
   const qc = qcRes.data?.[0] ?? null
@@ -174,7 +176,7 @@ export async function getWorkOrder(workOrderId: string): Promise<WorkOrder | nul
       customer: wo.cases.customers,
       vehicle: wo.cases.vehicles,
     } : null,
-    responsible: wo.technicians ?? null,
+    responsible: responsibleRes.data ?? null,
   }
 }
 
@@ -184,7 +186,7 @@ export async function getWorkOrderByCaseId(caseId: string) {
   const supabase = await createSupabaseServerClient()
   const { data } = await supabase
     .from('work_orders')
-    .select('id, wo_number, status, started_at, responsible_technician_id, technicians(name)')
+    .select('id, wo_number, status, started_at, responsible_technician_id')
     .eq('case_id', caseId)
     .single()
   return data ?? null
