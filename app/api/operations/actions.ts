@@ -2,44 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import type { OperationStatus, BudgetTypeDefault, MemberRole } from './constants'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type { OperationStatus, BudgetTypeDefault, MemberRole }
-
-export type Operation = {
-  id: string
-  name: string
-  status: OperationStatus
-  budget_type_default: BudgetTypeDefault
-  workflow_template_id: string | null
-  start_date: string | null
-  end_date: string | null
-  target_vehicle_count: number | null
-  notes: string | null
-  created_at: string
-  updated_at: string
-  customer_id: string | null
-  customer_name: string | null
-  total_cases: number
-  completed_cases: number
-  in_progress_cases: number
-  pending_cases: number
-  total_amount: number
-  active_members: number
-}
-
-export type OperationMember = {
-  id: string
-  operation_id: string
-  technician_id: string
-  primary_function: MemberRole | null
-  joined_at: string
-  left_at: string | null
-  technicians: { id: string; name: string; role: string | null } | null
-  roles: MemberRole[]
-}
+import type { OperationStatus, BudgetTypeDefault, MemberRole, Operation, OperationMember } from './constants'
 
 // ─── Listar operações ─────────────────────────────────────────────────────────
 
