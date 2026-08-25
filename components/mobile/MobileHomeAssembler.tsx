@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useTransition, useEffect, useRef } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { startTask, completeTask } from '@/app/api/workflow/actions'
 import type { CurrentTechnicianContext } from '@/app/api/roles/actions'
 import type { QueueItem } from '@/app/api/workflow/constants'
+import { useElapsed, fmtElapsed } from '@/hooks/useElapsed'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -15,30 +16,6 @@ function fmtWait(mins: number) {
   const h = Math.floor(m / 60)
   const rem = m % 60
   return rem === 0 ? `${h}h` : `${h}h ${rem}min`
-}
-
-function fmtElapsed(sec: number) {
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  const s = sec % 60
-  const mm = String(m).padStart(2, '0')
-  const ss = String(s).padStart(2, '0')
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`
-}
-
-function useElapsed(startedAt: string | null | undefined) {
-  const [sec, setSec] = useState(0)
-  const ref = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  useEffect(() => {
-    if (!startedAt) { setSec(0); return }
-    const base = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
-    setSec(Math.max(0, base))
-    ref.current = setInterval(() => setSec(s => s + 1), 1000)
-    return () => { if (ref.current) clearInterval(ref.current) }
-  }, [startedAt])
-
-  return sec
 }
 
 // ─── Accent ─────────────────────────────────────────────────────────────────

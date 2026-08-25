@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { startTask, completeTask } from '@/app/api/workflow/actions'
 import type { CurrentTechnicianContext } from '@/app/api/roles/actions'
 import type { QueueItem, WorkflowTaskEvent } from '@/app/api/workflow/constants'
 import MobileInspectionForm from './MobileInspectionForm'
+import { useElapsed, fmtElapsed } from '@/hooks/useElapsed'
 
 const STEP_LABEL: Record<string, string> = {
   reception: 'Recepção', disassembly: 'Desmontagem', repair: 'PDR',
@@ -31,20 +32,6 @@ const EVENT_LABEL: Record<string, string> = {
   inspection_approved: 'Inspeção aprovada', inspection_failed: 'Repasse solicitado',
 }
 
-function useElapsed(startedAt: string | null) {
-  const [secs, setSecs] = useState(0)
-  useEffect(() => {
-    if (!startedAt) { setSecs(0); return }
-    const tick = () => setSecs(Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000))
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [startedAt])
-  const h = Math.floor(secs / 3600)
-  const m = Math.floor((secs % 3600) / 60)
-  const s = secs % 60
-  return [h, m, s].map(v => String(v).padStart(2, '0')).join(':')
-}
 
 function fmt(dt: string) {
   const d = new Date(dt)
@@ -67,7 +54,8 @@ export default function MobileTaskDetail({ ctx, task, events, reworkStepId, next
   const [flash, setFlash] = useState('')
   const [flashOk, setFlashOk] = useState(true)
 
-  const timer = useElapsed(task.status === 'in_progress' ? task.started_at : null)
+  const elapsedSec = useElapsed(task.status === 'in_progress' ? task.started_at : null)
+  const timer = fmtElapsed(elapsedSec)
 
   function showFlash(msg: string, ok = true) {
     setFlash(msg); setFlashOk(ok)
