@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 const NAV = [
   { label: 'Dashboard',        href: '/' },
   { label: 'Operações',        href: '/operations' },
+  { label: 'Workflows',        href: '/workflow-templates' },
   { label: 'Casos',            href: '/cases' },
   { label: 'Ordens de Serviço', href: '/work-orders' },
   { label: '見積書',            href: '/estimativas' },
