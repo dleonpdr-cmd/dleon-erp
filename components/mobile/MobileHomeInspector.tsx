@@ -8,10 +8,11 @@ import type { CurrentTechnicianContext } from '@/app/api/roles/actions'
 import type { QueueItem } from '@/app/api/workflow/constants'
 
 function fmtWait(mins: number) {
-  if (mins < 60) return `${mins} min`
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
-  return m === 0 ? `${h}h` : `${h}h ${m}min`
+  const m = Math.round(mins)
+  if (m < 60) return `${m} min`
+  const h = Math.floor(m / 60)
+  const rem = m % 60
+  return rem === 0 ? `${h}h` : `${h}h ${rem}min`
 }
 
 type Props = {
