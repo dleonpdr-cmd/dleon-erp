@@ -4,6 +4,7 @@ import { resolveCurrentTechnician, getMyOperations } from '@/app/api/roles/actio
 import { getOperationQueue } from '@/app/api/workflow/actions'
 import MobileSetup from '@/components/mobile/MobileSetup'
 import MobileHomePDR from '@/components/mobile/MobileHomePDR'
+import MobileHomeInspector from '@/components/mobile/MobileHomeInspector'
 
 export default async function MobilePage() {
   const supabase = await createSupabaseServerClient()
@@ -64,6 +65,16 @@ export default async function MobilePage() {
     )
   }
 
-  // Fallback para outras funções (inspector, assembler, etc.) — redirecionar para fila
+  if (ctx.activeRole === 'inspector') {
+    return (
+      <MobileHomeInspector
+        ctx={ctx}
+        currentTask={currentTask ?? null}
+        queuedTasks={queuedTasks}
+      />
+    )
+  }
+
+  // Fallback para outras funções (assembler, supervisor, etc.) — redirecionar para fila
   redirect(`/mobile/queue?role=${ctx.activeRole}&op=${ctx.operationId}`)
 }
