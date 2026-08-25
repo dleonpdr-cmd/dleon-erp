@@ -58,9 +58,10 @@ type Props = {
   reworkStepId?: string
   nextInspectionStepId?: string
   assemblyStepId?: string
+  repairStepId?: string
 }
 
-export default function MobileTaskDetail({ ctx, task, events, reworkStepId, nextInspectionStepId, assemblyStepId }: Props) {
+export default function MobileTaskDetail({ ctx, task, events, reworkStepId, nextInspectionStepId, assemblyStepId, repairStepId }: Props) {
   const router = useRouter()
   const [pending, startT] = useTransition()
   const [flash, setFlash] = useState('')
@@ -83,10 +84,18 @@ export default function MobileTaskDetail({ ctx, task, events, reworkStepId, next
 
   function handleComplete() {
     startT(async () => {
-      const r = await completeTask(task.id, ctx.operationId)
+      // Desmontagem auto-cria task de reparo; outros steps só concluem
+      const opts = task.step_type === 'disassembly' && repairStepId
+        ? { advanceToStepId: repairStepId }
+        : undefined
+      const r = await completeTask(task.id, ctx.operationId, opts)
       if (r.error) showFlash('Erro: ' + r.error, false)
       else {
-        showFlash(task.step_type === 'rework' ? 'Repasse concluído ✓' : 'Enviado para inspeção ✓')
+        const msg =
+          task.step_type === 'disassembly' ? 'Desmontagem concluída ✓' :
+          task.step_type === 'rework'       ? 'Repasse concluído ✓' :
+                                              'Enviado para inspeção ✓'
+        showFlash(msg)
         setTimeout(() => router.push('/mobile'), 1200)
       }
     })

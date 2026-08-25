@@ -24,12 +24,13 @@ export default async function MobileTaskPage({ params }: { params: Promise<{ id:
 
   const events = await getTaskEvents(id)
 
-  // Para tasks de inspeção: buscar step IDs do template para navegação do workflow
+  // Buscar step IDs do template para auto-avançar o workflow
   let reworkStepId: string | undefined
   let nextInspectionStepId: string | undefined
   let assemblyStepId: string | undefined
+  let repairStepId: string | undefined
 
-  if (task.step_type === 'inspection') {
+  if (task.step_type === 'inspection' || task.step_type === 'disassembly') {
     // Busca o step atual para obter o template_id
     const { data: currentStep } = await supabase
       .from('workflow_steps')
@@ -60,6 +61,10 @@ export default async function MobileTaskPage({ params }: { params: Promise<{ id:
         // Encontra o step de montagem (para aprovação)
         const assemblyStep = allSteps.find(s => s.step_type === 'assembly')
         assemblyStepId = assemblyStep?.id
+
+        // Encontra o step de reparo (para desmontagem → auto-criar PDR)
+        const repairStep = allSteps.find(s => s.step_type === 'repair')
+        repairStepId = repairStep?.id
       }
     }
   }
@@ -72,6 +77,7 @@ export default async function MobileTaskPage({ params }: { params: Promise<{ id:
       reworkStepId={reworkStepId}
       nextInspectionStepId={nextInspectionStepId}
       assemblyStepId={assemblyStepId}
+      repairStepId={repairStepId}
     />
   )
 }
