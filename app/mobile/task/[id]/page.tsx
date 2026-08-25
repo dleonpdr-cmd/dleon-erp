@@ -1,7 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveCurrentTechnician } from '@/app/api/roles/actions'
-import { getOperationQueue, getTaskEvents } from '@/app/api/workflow/actions'
+import { getTaskEvents } from '@/app/api/workflow/actions'
 import MobileTaskDetail from '@/components/mobile/MobileTaskDetail'
 
 export default async function MobileTaskPage({ params }: { params: Promise<{ id: string }> }) {
@@ -14,9 +14,12 @@ export default async function MobileTaskPage({ params }: { params: Promise<{ id:
   const ctx = await resolveCurrentTechnician()
   if (!ctx) redirect('/mobile')
 
-  // Buscar a task pelo id — pegamos da fila (inclui todos os campos)
-  const queue = await getOperationQueue(ctx.operationId)
-  const task = queue.find(t => t.id === id)
+  // Buscar a task pelo id diretamente na view (sem filtro de status)
+  const { data: task } = await supabase
+    .from('v_workflow_queue')
+    .select('*')
+    .eq('id', id)
+    .single()
   if (!task) notFound()
 
   const events = await getTaskEvents(id)
