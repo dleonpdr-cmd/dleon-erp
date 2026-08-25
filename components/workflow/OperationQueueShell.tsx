@@ -101,9 +101,12 @@ export default function OperationQueueShell({
       return
     }
 
-    // Acha próximo step no template
+    // Bug fix #3: rework NÃO auto-avança — a próxima inspeção já foi criada por submitInspection
+    const isRework = task.step_type === 'rework'
+
+    // Acha próximo step no template (somente para não-rework)
     const currentStepIdx = templateSteps.findIndex(s => s.id === task.workflow_step_id)
-    const nextStep = currentStepIdx >= 0 ? templateSteps[currentStepIdx + 1] : null
+    const nextStep = !isRework && currentStepIdx >= 0 ? templateSteps[currentStepIdx + 1] : null
 
     startT(async () => {
       const r = await completeTask(task.id, operationId, {
@@ -112,7 +115,7 @@ export default function OperationQueueShell({
       if (r.error) flash('Erro: ' + r.error)
       else {
         setQueue(prev => prev.filter(q => q.id !== task.id))
-        flash(nextStep ? `Concluído → ${nextStep.name}` : 'Concluído.')
+        flash(isRework ? 'Repasse concluído — aguardando inspeção.' : nextStep ? `Concluído → ${nextStep.name}` : 'Concluído.')
         router.refresh()
       }
     })
@@ -151,12 +154,17 @@ export default function OperationQueueShell({
   async function doSubmitInspection() {
     if (!inspModal) return
     const currentStepIdx = templateSteps.findIndex(s => s.id === inspModal.workflow_step_id)
-    // Próximo step após inspeção (se aprovado)
-    const nextApprovalStep = templateSteps[currentStepIdx + 1]
-    // Step de rework (procura o rework mais próximo antes da inspeção atual ou usa o step de rework do template)
+
+    // Bug fix #1: ao aprovar, pula steps de rework para achar a próxima etapa real (ex: Montagem)
+    const nextApprovalStep = templateSteps.slice(currentStepIdx + 1).find(s => s.step_type !== 'rework')
+
+    // Step de rework do template
     const reworkStep = templateSteps.find(s => s.step_type === 'rework')
-    // Próxima inspeção (se reprovado, cria outra inspeção no próximo step de inspection)
-    const nextInspStep = templateSteps.find((s, i) => i > currentStepIdx && s.step_type === 'inspection')
+
+    // Bug fix #2: ao reprovar, usa o mesmo step de inspeção (round+1) se não houver outro step de inspection no template
+    const nextInspStepId =
+      templateSteps.find((s, i) => i > currentStepIdx && s.step_type === 'inspection')?.id
+      ?? inspModal.workflow_step_id  // fallback: mesma etapa, round+1
 
     startT(async () => {
       const r = await submitInspection(
@@ -166,7 +174,7 @@ export default function OperationQueueShell({
         [],
         {
           reworkStepId: reworkStep?.id,
-          nextInspectionStepId: nextInspStep?.id,
+          nextInspectionStepId: nextInspStepId,
           nextStepAfterApproval: inspResult === 'approved' ? nextApprovalStep?.id : undefined,
           notes: inspNotes || undefined,
         }

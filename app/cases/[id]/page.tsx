@@ -10,6 +10,8 @@ import { getWorkOrderByCaseId } from '@/app/api/work-orders/actions'
 import { WO_STATUS_LABEL, WO_STATUS_COLOR } from '@/app/api/work-orders/constants'
 import CreateOSBtn from '@/components/work-orders/CreateOSBtn'
 import OperationSection from '@/components/cases/OperationSection'
+import CaseWorkflowSection from '@/components/workflow/CaseWorkflowSection'
+import { getCaseWorkflowStatus, getTasksByCase, getWorkflowSteps } from '@/app/api/workflow/actions'
 
 export default async function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -19,10 +21,13 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
 
   const { data: c } = await supabase
     .from('cases')
-    .select('*, customers(name, phone, email), vehicles(make, model, year, plate), operations(id, name, customer_id, customers(name))')
+    .select('*, customers(name, phone, email), vehicles(make, model, year, plate), operations(id, name, workflow_template_id, customer_id, customers(name))')
     .eq('id', id)
     .single()
   if (!c) redirect('/cases')
+
+  const caseOp0: any = (c as any).operations ?? null
+  const opTemplateId: string | null = caseOp0?.workflow_template_id ?? null
 
   const [
     { data: parts },
@@ -33,6 +38,9 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     workOrder,
     techsRes,
     opsRes,
+    workflowStatus,
+    workflowTasks,
+    templateSteps,
   ] = await Promise.all([
     supabase.from('vehicle_parts').select('*').eq('case_id', id),
     supabase.from('case_technicians').select('*, technicians(name, region)').eq('case_id', id),
@@ -42,15 +50,26 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
     getWorkOrderByCaseId(id),
     supabase.from('technicians').select('id, name').order('name'),
     supabase.from('operations').select('id, name, customer_id, customers(name)').not('status', 'eq', 'cancelled').order('name'),
+    caseOp0 ? getCaseWorkflowStatus(id, caseOp0.id) : Promise.resolve(null),
+    caseOp0 ? getTasksByCase(id, caseOp0.id) : Promise.resolve([]),
+    opTemplateId ? getWorkflowSteps(opTemplateId) : Promise.resolve([]),
   ])
 
   // Operação atual do caso
-  const caseOp: any = (c as any).operations ?? null
+  const caseOp: any = caseOp0
   const currentOperation = caseOp ? {
     id: caseOp.id,
     name: caseOp.name,
     customer_name: (caseOp.customers as any)?.name ?? null,
   } : null
+
+  // Mapa stepId → name/type para o CaseWorkflowSection
+  const stepNames: Record<string, string> = {}
+  const stepTypes: Record<string, string> = {}
+  for (const s of templateSteps) {
+    stepNames[s.id] = s.name
+    stepTypes[s.id] = s.step_type
+  }
   const allOperations = (opsRes.data ?? []).map((o: any) => ({
     id: o.id,
     name: o.name,
@@ -220,6 +239,20 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         currentOperation={currentOperation}
         allOperations={allOperations}
       />
+
+      {/* Workflow */}
+      {caseOp && (
+        <CaseWorkflowSection
+          caseId={c.id}
+          operationId={caseOp.id}
+          operationName={caseOp.name}
+          templateId={opTemplateId}
+          currentStatus={workflowStatus}
+          tasks={workflowTasks}
+          stepNames={stepNames}
+          stepTypes={stepTypes}
+        />
+      )}
 
       {/* Pagamentos */}
       <PaymentSection
