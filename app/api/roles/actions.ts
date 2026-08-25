@@ -226,6 +226,97 @@ export async function setSessionState(patch: {
   return {}
 }
 
+// ─── Resolver técnico atual pelo user_id ─────────────────────────────────────
+
+export type CurrentTechnicianContext = {
+  technicianId: string
+  technicianName: string
+  operationId: string
+  operationName: string
+  activeRole: OperationalRole
+  allowedRoles: OperationalRole[]
+}
+
+export async function resolveCurrentTechnician(): Promise<CurrentTechnicianContext | null> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  // 1. Encontrar técnico vinculado a este usuário
+  const { data: tech } = await supabase
+    .from('technicians')
+    .select('id, name')
+    .eq('user_id', user.id)
+    .single()
+  if (!tech) return null
+
+  // 2. Pegar session state
+  const { data: session } = await supabase
+    .from('user_session_state')
+    .select('active_operation_id, active_role')
+    .eq('user_id', user.id)
+    .single()
+
+  if (!session?.active_operation_id || !session?.active_role) return null
+
+  // 3. Verificar se o técnico está na operação
+  const { data: member } = await supabase
+    .from('operation_members')
+    .select('id, operation_member_roles(role), operations(name)')
+    .eq('technician_id', tech.id)
+    .eq('operation_id', session.active_operation_id)
+    .is('left_at', null)
+    .single()
+
+  if (!member) return null
+
+  const opData = member as any
+  const allowedRoles = (opData.operation_member_roles ?? []).map((r: any) => r.role as OperationalRole)
+
+  return {
+    technicianId:   tech.id,
+    technicianName: tech.name,
+    operationId:    session.active_operation_id,
+    operationName:  opData.operations?.name ?? '',
+    activeRole:     session.active_role as OperationalRole,
+    allowedRoles,
+  }
+}
+
+// ─── Listar operações do técnico atual (para seleção de operação ativa) ───────
+
+export async function getMyOperations(): Promise<{
+  operationId: string
+  operationName: string
+  primaryFunction: OperationalRole | null
+  roles: OperationalRole[]
+}[]> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data: tech } = await supabase
+    .from('technicians')
+    .select('id')
+    .eq('user_id', user.id)
+    .single()
+  if (!tech) return []
+
+  const { data: members } = await supabase
+    .from('operation_members')
+    .select('operation_id, primary_function, operations(name), operation_member_roles(role)')
+    .eq('technician_id', tech.id)
+    .is('left_at', null)
+  if (!members) return []
+
+  return (members as any[]).map(m => ({
+    operationId:     m.operation_id,
+    operationName:   m.operations?.name ?? '',
+    primaryFunction: m.primary_function as OperationalRole | null,
+    roles:           (m.operation_member_roles ?? []).map((r: any) => r.role as OperationalRole),
+  }))
+}
+
 // ─── Listar operações disponíveis para seleção ───────────────────────────────
 
 export async function getAvailableOperations(): Promise<{ id: string; name: string }[]> {
