@@ -6,6 +6,7 @@ import {
   getOperation, getOperationCases, getOperationMembers,
 } from '@/app/api/operations/actions'
 import { OP_STATUS_LABEL, OP_STATUS_COLOR, MEMBER_ROLE_LABEL } from '@/app/api/operations/constants'
+import { getWorkflowTemplates } from '@/app/api/workflow/actions'
 import OperationShell from '@/components/operations/OperationShell'
 
 export default async function OperationDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -14,12 +15,13 @@ export default async function OperationDetailPage({ params }: { params: Promise<
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [op, cases, members, customersRes, techsRes] = await Promise.all([
+  const [op, cases, members, customersRes, techsRes, templates] = await Promise.all([
     getOperation(id),
     getOperationCases(id),
     getOperationMembers(id),
     supabase.from('customers').select('id, name').order('name'),
     supabase.from('technicians').select('id, name').eq('active', true).order('name'),
+    getWorkflowTemplates(),
   ])
 
   if (!op) notFound()
@@ -113,6 +115,7 @@ export default async function OperationDetailPage({ params }: { params: Promise<
         members={members}
         customers={customers}
         technicians={technicians}
+        templates={templates}
       />
     </AppShell>
   )

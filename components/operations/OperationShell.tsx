@@ -10,6 +10,7 @@ import {
   type Operation, type OperationMember,
   type OperationStatus, type MemberRole, type BudgetTypeDefault,
 } from '@/app/api/operations/constants'
+import type { WorkflowTemplate } from '@/app/api/workflow/constants'
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -51,11 +52,12 @@ type Props = {
   members: OperationMember[]
   customers: { id: string; name: string }[]
   technicians: { id: string; name: string }[]
+  templates: WorkflowTemplate[]
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function OperationShell({ operation: initial, cases: initialCases, members: initialMembers, customers, technicians }: Props) {
+export default function OperationShell({ operation: initial, cases: initialCases, members: initialMembers, customers, technicians, templates }: Props) {
   const [op, setOp]           = useState(initial)
   const [members, setMembers] = useState(initialMembers)
   const [cases]               = useState(initialCases)
@@ -74,6 +76,21 @@ export default function OperationShell({ operation: initial, cases: initialCases
     end_date: op.end_date ?? '',
     notes: op.notes ?? '',
   })
+
+  // Workflow template
+  const [selTemplate, setSelTemplate] = useState(op.workflow_template_id ?? '')
+  const [savingTemplate, setSavingTemplate] = useState(false)
+
+  async function handleSaveTemplate() {
+    setSavingTemplate(true)
+    const r = await updateOperation(op.id, { workflow_template_id: selTemplate || null })
+    setSavingTemplate(false)
+    if (r.error) flash('Erro: ' + r.error)
+    else {
+      setOp(prev => ({ ...prev, workflow_template_id: selTemplate || null }))
+      flash('Workflow atualizado.')
+    }
+  }
 
   // Add member modal
   const [addMemberModal, setAddMemberModal] = useState(false)
@@ -255,14 +272,54 @@ export default function OperationShell({ operation: initial, cases: initialCases
       {/* ── Workflow ──────────────────────────────────────────────────────────── */}
       <div style={card}>
         <div style={sTitle}>WORKFLOW</div>
-        {op.workflow_template_id ? (
-          <div style={{ fontSize: '13px', color: '#1D9E75' }}>✓ Template configurado</div>
+        {templates.length === 0 ? (
+          <div style={{ fontSize: '12px', color: '#555' }}>
+            Nenhum template criado.{' '}
+            <a href="/workflow-templates/new" style={{ color: '#FF6B00', textDecoration: 'none' }}>Criar template →</a>
+          </div>
         ) : (
-          <div style={{ padding: '12px 0', textAlign: 'center' }}>
-            <div style={{ fontSize: '13px', color: '#555', marginBottom: '8px' }}>Workflow ainda não configurado</div>
-            <div style={{ fontSize: '11px', color: '#333' }}>
-              Os templates de workflow serão configurados na Fase 2 — Workflow Templates.
+          <div>
+            {/* Current template info */}
+            {op.workflow_template_id && (
+              <div style={{ marginBottom: '12px', padding: '10px 12px', background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.2)', borderRadius: '6px', fontSize: '12px', color: '#1D9E75' }}>
+                ✓ {templates.find(t => t.id === op.workflow_template_id)?.name ?? 'Template ativo'}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '11px', color: '#555', display: 'block', marginBottom: '4px' }}>
+                  {op.workflow_template_id ? 'Trocar template' : 'Selecionar template'}
+                </label>
+                <select
+                  value={selTemplate}
+                  onChange={e => setSelTemplate(e.target.value)}
+                  style={{ ...input, width: '100%' }}
+                >
+                  <option value="">— sem workflow —</option>
+                  {templates.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={handleSaveTemplate}
+                disabled={savingTemplate || selTemplate === (op.workflow_template_id ?? '')}
+                style={{
+                  ...btn('#FF6B00'),
+                  opacity: (savingTemplate || selTemplate === (op.workflow_template_id ?? '')) ? 0.5 : 1,
+                  cursor: (savingTemplate || selTemplate === (op.workflow_template_id ?? '')) ? 'default' : 'pointer',
+                }}
+              >
+                {savingTemplate ? '...' : 'Salvar'}
+              </button>
             </div>
+
+            {selTemplate && selTemplate !== (op.workflow_template_id ?? '') && (
+              <div style={{ marginTop: '8px', fontSize: '11px', color: '#555' }}>
+                Alterar o template não afeta tarefas já criadas para os casos desta operação.
+              </div>
+            )}
           </div>
         )}
       </div>
