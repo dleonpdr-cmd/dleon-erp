@@ -1,28 +1,37 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import AppShell from '@/components/AppShell'
 import {
   getTechnicianKpis,
   getTechnicianTimeline,
   getTechnicianPayments,
   getMonthlyKpis,
 } from '@/app/api/repasse/actions'
+import { getTechnicianWithRoles, getAvailableOperations } from '@/app/api/roles/actions'
+import TechnicianRolesShell from '@/components/technicians/TechnicianRolesShell'
+import { ROLE_LABEL, ROLE_COLOR } from '@/app/api/roles/constants'
 
-export default async function TechnicianProfilePage({ params }: { params: { id: string } }) {
+export default async function TechnicianProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
 
   const { data: tech } = await supabase
     .from('technicians')
-    .select('id, name, role, active')
-    .eq('id', params.id)
+    .select('id, name, role, active, primary_role')
+    .eq('id', id)
     .single()
 
   if (!tech) notFound()
 
-  const [kpis, timeline, payments, monthly] = await Promise.all([
-    getTechnicianKpis(params.id),
-    getTechnicianTimeline(params.id),
-    getTechnicianPayments(params.id),
-    getMonthlyKpis(params.id),
+  const [kpis, timeline, payments, monthly, techRoles, availableOps] = await Promise.all([
+    getTechnicianKpis(id),
+    getTechnicianTimeline(id),
+    getTechnicianPayments(id),
+    getMonthlyKpis(id),
+    getTechnicianWithRoles(id),
+    getAvailableOperations(),
   ])
 
   const fmt = (n: number) => '¥' + n.toLocaleString('ja-JP')
@@ -32,23 +41,43 @@ export default async function TechnicianProfilePage({ params }: { params: { id: 
     pending: '#555', partial: '#FFB800', paid: '#1D9E75',
   }
 
+  const primaryRoleColor = techRoles?.primary_role
+    ? ROLE_COLOR[techRoles.primary_role] ?? '#555'
+    : '#555'
+  const primaryRoleLabel = techRoles?.primary_role
+    ? ROLE_LABEL[techRoles.primary_role]
+    : null
+
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '32px 20px', color: '#F0EEE9', fontFamily: 'system-ui, sans-serif' }}>
+    <AppShell userEmail={user.email}>
+    <div style={{ maxWidth: '960px', margin: '0 auto', color: '#F0EEE9' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '28px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
         <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#1D9E7533', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '700', color: '#1D9E75' }}>
           {tech.name.charAt(0)}
         </div>
         <div>
           <h1 style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>{tech.name}</h1>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '4px', alignItems: 'center' }}>
             <span style={{ fontSize: '11px', color: '#888' }}>{tech.role ?? 'Técnico'}</span>
+            {primaryRoleLabel && (
+              <span style={{
+                fontSize: '10px', padding: '2px 8px', borderRadius: '10px',
+                background: `${primaryRoleColor}22`, color: primaryRoleColor, border: `1px solid ${primaryRoleColor}44`,
+              }}>
+                {primaryRoleLabel}
+              </span>
+            )}
             <span style={{ fontSize: '11px', color: tech.active ? '#1D9E75' : '#555' }}>
               {tech.active ? '● Ativo' : '○ Inativo'}
             </span>
           </div>
         </div>
       </div>
+
+      {/* Layout: 2 colunas */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '20px', alignItems: 'start' }}>
+      <div>{/* Coluna esquerda: KPIs + financeiro */}
 
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
@@ -142,6 +171,26 @@ export default async function TechnicianProfilePage({ params }: { params: { id: 
           </div>
         )}
       </div>
+      </div>{/* fim coluna esquerda */}
+
+      {/* Coluna direita: Função & acesso */}
+      <div>
+        <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '14px', color: '#F0EEE9' }}>
+          FUNÇÃO &amp; ACESSO
+        </div>
+        {techRoles ? (
+          <TechnicianRolesShell
+            tech={techRoles}
+            availableOperations={availableOps}
+          />
+        ) : (
+          <div style={{ background: '#141414', border: '1px solid #2A2A2A', borderRadius: '10px', padding: '20px', fontSize: '12px', color: '#555' }}>
+            Migration 010 ainda não aplicada — execute no Supabase para habilitar funções.
+          </div>
+        )}
+      </div>
+      </div>{/* fim grid 2 colunas */}
     </div>
+    </AppShell>
   )
 }
