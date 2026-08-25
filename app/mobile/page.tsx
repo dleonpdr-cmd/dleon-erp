@@ -5,6 +5,7 @@ import { getOperationQueue } from '@/app/api/workflow/actions'
 import MobileSetup from '@/components/mobile/MobileSetup'
 import MobileHomePDR from '@/components/mobile/MobileHomePDR'
 import MobileHomeInspector from '@/components/mobile/MobileHomeInspector'
+import MobileHomeAssembler from '@/components/mobile/MobileHomeAssembler'
 
 export default async function MobilePage() {
   const supabase = await createSupabaseServerClient()
@@ -75,6 +76,43 @@ export default async function MobilePage() {
     )
   }
 
-  // Fallback para outras funções (assembler, supervisor, etc.) — redirecionar para fila
+  if (ctx.activeRole === 'assembler') {
+    // Separar desmontagem e montagem na fila
+    const disassemblyTasks = queuedTasks.filter(t => t.step_type === 'disassembly')
+    const assemblyTasks    = queuedTasks.filter(t => t.step_type === 'assembly')
+
+    // Resolver repairStepId para auto-criar tarefa de reparo ao concluir desmontagem
+    let repairStepId: string | undefined
+    const sampleTask = myTasks[0]
+    if (sampleTask?.workflow_step_id) {
+      const { data: currentStep } = await supabase
+        .from('workflow_steps')
+        .select('template_id')
+        .eq('id', sampleTask.workflow_step_id)
+        .single()
+
+      if (currentStep?.template_id) {
+        const { data: steps } = await supabase
+          .from('workflow_steps')
+          .select('id, step_type')
+          .eq('template_id', currentStep.template_id)
+          .eq('is_active', true)
+
+        repairStepId = steps?.find(s => s.step_type === 'repair')?.id
+      }
+    }
+
+    return (
+      <MobileHomeAssembler
+        ctx={ctx}
+        currentTask={currentTask ?? null}
+        disassemblyTasks={disassemblyTasks}
+        assemblyTasks={assemblyTasks}
+        repairStepId={repairStepId}
+      />
+    )
+  }
+
+  // Fallback para outras funções (supervisor, etc.) — redirecionar para fila
   redirect(`/mobile/queue?role=${ctx.activeRole}&op=${ctx.operationId}`)
 }
