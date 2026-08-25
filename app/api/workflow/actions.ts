@@ -624,6 +624,20 @@ export async function startCaseWorkflow(
 
 // ─── Queries / views ──────────────────────────────────────────────────────────
 
+// Toda a fila ativa de uma operação (todos os steps)
+export async function getOperationQueue(operationId: string): Promise<QueueItem[]> {
+  const supabase = await createSupabaseServerClient()
+  const { data, error } = await supabase
+    .from('v_workflow_queue')
+    .select('*')
+    .eq('operation_id', operationId)
+    .in('status', ['queued', 'in_progress'])
+    .order('step_order')
+    .order('queue_position')
+  if (error) { console.error(error); return [] }
+  return (data ?? []) as QueueItem[]
+}
+
 export async function getQueueByStep(stepId: string, operationId?: string): Promise<QueueItem[]> {
   const supabase = await createSupabaseServerClient()
   let query = supabase

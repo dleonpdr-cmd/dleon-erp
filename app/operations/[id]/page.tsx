@@ -66,13 +66,22 @@ export default async function OperationDetailPage({ params }: { params: Promise<
             <div style={{ fontSize: '13px', color: '#555' }}>{op.customer_name}</div>
           )}
         </div>
-        <Link href="/operations" style={{
-          height: '34px', padding: '0 14px', background: '#1A1A1A', border: '1px solid #2A2A2A',
-          borderRadius: '6px', color: '#888', fontSize: '12px', display: 'inline-flex',
-          alignItems: 'center', textDecoration: 'none',
-        }}>
-          ← Operações
-        </Link>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Link href={`/operations/${id}/queue`} style={{
+            height: '34px', padding: '0 14px', background: '#FF6B00', border: 'none',
+            borderRadius: '6px', color: '#fff', fontSize: '12px', display: 'inline-flex',
+            alignItems: 'center', textDecoration: 'none', fontWeight: '500',
+          }}>
+            Fila →
+          </Link>
+          <Link href="/operations" style={{
+            height: '34px', padding: '0 14px', background: '#1A1A1A', border: '1px solid #2A2A2A',
+            borderRadius: '6px', color: '#888', fontSize: '12px', display: 'inline-flex',
+            alignItems: 'center', textDecoration: 'none',
+          }}>
+            ← Operações
+          </Link>
+        </div>
       </div>
 
       {/* KPI cards */}
