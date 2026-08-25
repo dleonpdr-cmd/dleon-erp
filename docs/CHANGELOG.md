@@ -4,13 +4,41 @@ Formato: cada entrada registra o que foi entregue, os arquivos principais e o co
 
 ---
 
-## [Unreleased]
+## [Fase E] — Supervisor Dashboard Mobile (2026-08-25)
 
-### Sprint de Organização (2026-08-25)
-- Criação da pasta `docs/` com 11 documentos estruturados
-- Criação de `hooks/useElapsed.ts` — elimina duplicação em 3 componentes
-- Limpeza de arquivos de debug na raiz
-- Unificação de tipos duplicados
+**Commit:** `1a361c9`
+
+### Adicionado
+- `components/mobile/MobileHomeSupervisor.tsx` — dashboard read-only para supervisor/admin:
+  - KPIs: em andamento, na fila, total concluídos
+  - Linha de produção: barra de progresso por etapa com % concluído, ativos e avg wait
+  - Seção EM ANDAMENTO: todos os técnicos ativos com step badge + tempo trabalhando
+  - Seção GARGALOS: auto-detecção (queued > 3, avg_wait > 60min, + sempre destaca maior avg_wait_minutes da operação)
+  - Fila completa: filtro por step_type (chips), ordenada por wait_minutes desc
+  - Bottom nav amber (`#F59E0B`) — diferenciado dos outros roles
+- Prop `readOnly` em `MobileTaskDetail` — oculta todos os botões de ação, exibe banner âmbar "MODO VISUALIZAÇÃO"
+
+### Modificado
+- `app/mobile/page.tsx` — supervisor e admin chamam `MobileHomeSupervisor` com `getOperationStepCounts()`
+- `app/mobile/task/[id]/page.tsx` — passa `readOnly=true` para supervisor, admin e financial
+- `components/mobile/MobileTaskDetail.tsx` — prop `readOnly?: boolean`, `isMyTask` respeita readOnly
+
+### Sem migration, sem novas server actions, sem novas queries
+
+---
+
+## [Sprint de Organização] — Documentação + Refactor (2026-08-25)
+
+**Commits:** (Sprint 1+2)
+
+### Sprint 1 — Documentação
+- `docs/README.md`, `ARCHITECTURE.md`, `BUSINESS_RULES.md`, `DATABASE.md`
+- `docs/ROADMAP.md`, `CHANGELOG.md`, `PROJECT_MEMORY.md`, `TODO.md`
+- `docs/UI_GUIDELINES.md`, `API_CONTRACT.md`, `DESIGN_DECISIONS.md`
+
+### Sprint 2 — Limpeza
+- `hooks/useElapsed.ts` — hook centralizado, elimina 3 implementações duplicadas
+- `MobileHomePDR`, `MobileTaskDetail`, `MobileHomeAssembler` — importam de `@/hooks/useElapsed`
 
 ---
 

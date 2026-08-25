@@ -2,7 +2,7 @@
 
 > Este documento é a memória permanente do projeto.  
 > Atualizar sempre que uma grande funcionalidade for concluída.  
-> Última atualização: 2026-08-25 (Sprint de Organização + Fase D completa)
+> Última atualização: 2026-08-25 (Fase E completa — Supervisor Dashboard mobile)
 
 ---
 
@@ -71,7 +71,7 @@ Nunca substituir por queries inline na aplicação. Toda a lógica de fila, join
 
 **Padrão:** Server Components para fetch de dados → props para Client Components → Server Actions para mutações
 
-**Mobile:** Rotas em `/app/mobile/` com layout separado (dark, maxWidth 430px). Dispatcher em `app/mobile/page.tsx` roteia para a home correta por role.
+**Mobile:** Rotas em `/app/mobile/` com layout separado (dark, maxWidth 430px). Dispatcher em `app/mobile/page.tsx` roteia para a home correta por role. `readOnly=true` passado automaticamente para supervisor, admin e financial em `/mobile/task/[id]`.
 
 **Banco:** PostgreSQL via Supabase PostgREST. RLS habilitado em todas as tabelas. View `v_workflow_queue` para queries de fila.
 
@@ -96,13 +96,14 @@ Nunca substituir por queries inline na aplicação. Toda a lógica de fila, join
 | Mobile Fase B | ✅ | PDR Tech |
 | Mobile Fase C | ✅ | Inspector |
 | Mobile Fase D | ✅ | Assembler |
+| Mobile Fase E | ✅ | Supervisor dashboard |
 | Documentação | ✅ | docs/ completo |
 
 ## Módulos em desenvolvimento
 
 | Módulo | Status | Notas |
 |---|---|---|
-| Mobile Fase E | 🔄 | Supervisor dashboard |
+| Mobile Fase F | 🔄 | Gestão de Operações (Admin) — KPIs, throughput, exportação |
 
 ## Módulos planejados
 
@@ -156,6 +157,7 @@ Ver `UI_GUIDELINES.md` para detalhes completos.
 - PDR Tech: `#FF6B00` (laranja)
 - Inspector: `#9B59B6` (roxo)
 - Assembler: `#3498DB` (azul)
+- Supervisor/Admin: `#F59E0B` (âmbar)
 - Sucesso: `#1D9E75` (verde)
 - Erro/Problema: `#E24B4A` (vermelho)
 

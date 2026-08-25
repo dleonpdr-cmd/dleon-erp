@@ -34,26 +34,21 @@
 - [x] **Fase B** — Mobile PDR Tech: fila de reparos e repassses, timer, iniciar/concluir
 - [x] **Fase C** — Mobile Inspector: fila de inspeções, formulário de 13 painéis, aprovação/repasse, rounds
 - [x] **Fase D** — Mobile Assembler: desmontagem, montagem, timer, auto-criação de repair task
+- [x] **Fase E** — Mobile Supervisor: dashboard read-only com KPIs, linha de produção, gargalos, fila filtrada
 
-### Documentação
+### Documentação e Organização
 - [x] **Sprint 1** — pasta `docs/` com 11 documentos estruturados
+- [x] **Sprint 2** — `hooks/useElapsed.ts` centralizado, limpeza de duplicações
 
 ---
 
 ## 🔄 Em desenvolvimento
 
-### Mobile App
-- [ ] **Fase E** — Supervisor Dashboard mobile (visão geral da fila por operação)
+*(nenhuma fase em andamento no momento)*
 
 ---
 
 ## 📋 Próximas fases
-
-### Fase E — Supervisor Mobile
-- Visão consolidada de toda a fila da operação
-- Filtros por step_type, status, prioridade
-- Mover/repriorizar tasks
-- Ver histórico de qualquer task
 
 ### Fase F — Gestão de Operações (Admin)
 - Dashboard da operação com KPIs

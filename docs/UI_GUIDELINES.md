@@ -11,6 +11,7 @@
 | PDR Tech | Laranja | `#FF6B00` | Headers, botões, badges, borda ativa |
 | Inspector | Roxo | `#9B59B6` | Headers, botões, badges, borda ativa |
 | Assembler | Azul | `#3498DB` | Headers, botões, badges, borda ativa |
+| Supervisor / Admin | Âmbar | `#F59E0B` | Headers, KPIs, nav ativa, badge de gargalo |
 
 ### Cores semânticas
 
