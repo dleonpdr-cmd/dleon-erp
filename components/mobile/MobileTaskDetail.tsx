@@ -46,9 +46,10 @@ type Props = {
   nextInspectionStepId?: string
   assemblyStepId?: string
   repairStepId?: string
+  readOnly?: boolean
 }
 
-export default function MobileTaskDetail({ ctx, task, events, reworkStepId, nextInspectionStepId, assemblyStepId, repairStepId }: Props) {
+export default function MobileTaskDetail({ ctx, task, events, reworkStepId, nextInspectionStepId, assemblyStepId, repairStepId, readOnly = false }: Props) {
   const router = useRouter()
   const [pending, startT] = useTransition()
   const [flash, setFlash] = useState('')
@@ -91,10 +92,11 @@ export default function MobileTaskDetail({ ctx, task, events, reworkStepId, next
 
   const isInspectionTask = task.step_type === 'inspection'
   const isPDRTask = ['repair', 'rework'].includes(task.step_type)
-  const isMyTask =
+  const isMyTask = !readOnly && (
     (ctx.activeRole === 'pdr_tech' && isPDRTask) ||
     (ctx.activeRole === 'inspector' && isInspectionTask) ||
     (ctx.activeRole === 'assembler' && ['disassembly', 'assembly'].includes(task.step_type))
+  )
 
   const inspectionResult = task.payload?.inspection_result as string | undefined
 
@@ -122,6 +124,13 @@ export default function MobileTaskDetail({ ctx, task, events, reworkStepId, next
           {STATUS_LABEL[task.status] ?? task.status}
         </span>
       </div>
+
+      {/* Aviso read-only para supervisor */}
+      {readOnly && (
+        <div style={{ padding: '8px 20px', background: '#F59E0B18', borderBottom: '1px solid #F59E0B33', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', color: '#F59E0B', fontWeight: '600' }}>👁 MODO VISUALIZAÇÃO — sem permissão para alterar esta task</span>
+        </div>
+      )}
 
       {/* Timer (se em andamento e não é inspeção ativa — a inspeção tem seu próprio form) */}
       {task.status === 'in_progress' && !isInspectionTask && (

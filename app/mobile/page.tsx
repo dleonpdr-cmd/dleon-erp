@@ -1,11 +1,12 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { resolveCurrentTechnician, getMyOperations } from '@/app/api/roles/actions'
-import { getOperationQueue } from '@/app/api/workflow/actions'
+import { getOperationQueue, getOperationStepCounts } from '@/app/api/workflow/actions'
 import MobileSetup from '@/components/mobile/MobileSetup'
 import MobileHomePDR from '@/components/mobile/MobileHomePDR'
 import MobileHomeInspector from '@/components/mobile/MobileHomeInspector'
 import MobileHomeAssembler from '@/components/mobile/MobileHomeAssembler'
+import MobileHomeSupervisor from '@/components/mobile/MobileHomeSupervisor'
 
 export default async function MobilePage() {
   const supabase = await createSupabaseServerClient()
@@ -113,6 +114,17 @@ export default async function MobilePage() {
     )
   }
 
-  // Fallback para outras funções (supervisor, etc.) — redirecionar para fila
+  if (ctx.activeRole === 'supervisor' || ctx.activeRole === 'admin') {
+    const stepCounts = await getOperationStepCounts(ctx.operationId)
+    return (
+      <MobileHomeSupervisor
+        ctx={ctx}
+        queue={queue}
+        stepCounts={stepCounts}
+      />
+    )
+  }
+
+  // Fallback — redirecionar para fila
   redirect(`/mobile/queue?role=${ctx.activeRole}&op=${ctx.operationId}`)
 }

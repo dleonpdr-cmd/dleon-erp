@@ -69,6 +69,8 @@ export default async function MobileTaskPage({ params }: { params: Promise<{ id:
     }
   }
 
+  const readOnly = ['supervisor', 'admin', 'financial'].includes(ctx.activeRole)
+
   return (
     <MobileTaskDetail
       ctx={ctx}
@@ -78,6 +80,7 @@ export default async function MobileTaskPage({ params }: { params: Promise<{ id:
       nextInspectionStepId={nextInspectionStepId}
       assemblyStepId={assemblyStepId}
       repairStepId={repairStepId}
+      readOnly={readOnly}
     />
   )
 }
