@@ -629,8 +629,8 @@ export default function VehicleMap({
                   data-id={panel.id}
                   data-state={pState === 'none' ? undefined : pState}
                   style={{
-                    left: `var(--mark-${panel.id}-dx, ${panel.dx}px)`,
-                    top: `var(--mark-${panel.id}-dy, ${panel.dy}px)`,
+                    left: `${panel.dx}px`,
+                    top: `${panel.dy}px`,
                   }}
                   onClick={() => openSheet(panel.id)}
                 >
@@ -747,23 +747,21 @@ export default function VehicleMap({
       {/* Toast */}
       <div className={`vm-toast${toast ? ' show' : ''}`}>{toast}</div>
 
-      {/* CSS overrides para posições de marcadores via CSS vars — abordagem simples */}
+      {/* Posições mobile via [data-id] — robusto, independente da ordem DOM */}
       <style>{`
-        /* Cada marcador tem posição absoluta via style inline,
-           mas precisamos override para mobile via @media */
         @media (max-width: 560px) {
-          .vm-mark:nth-child(1)  { left: 195px !important; top: 114px !important; }
-          .vm-mark:nth-child(2)  { left: 88px !important;  top: 128px !important; }
-          .vm-mark:nth-child(3)  { left: 302px !important; top: 128px !important; }
-          .vm-mark:nth-child(4)  { left: 87px !important;  top: 247px !important; }
-          .vm-mark:nth-child(5)  { left: 87px !important;  top: 320px !important; }
-          .vm-mark:nth-child(6)  { left: 303px !important; top: 247px !important; }
-          .vm-mark:nth-child(7)  { left: 303px !important; top: 320px !important; }
-          .vm-mark:nth-child(8)  { left: 195px !important; top: 332px !important; }
-          .vm-mark:nth-child(9)  { left: 87px !important;  top: 437px !important; }
-          .vm-mark:nth-child(10) { left: 303px !important; top: 437px !important; }
-          .vm-mark:nth-child(11) { left: 195px !important; top: 474px !important; }
-          .vm-mark:nth-child(12) { left: 195px !important; top: 538px !important; }
+          .vm-mark[data-id="hood"]  { left: 195px !important; top: 114px !important; }
+          .vm-mark[data-id="lf"]    { left: 88px !important;  top: 128px !important; }
+          .vm-mark[data-id="rf"]    { left: 302px !important; top: 128px !important; }
+          .vm-mark[data-id="ld"]    { left: 87px !important;  top: 247px !important; }
+          .vm-mark[data-id="lrd"]   { left: 87px !important;  top: 320px !important; }
+          .vm-mark[data-id="rd"]    { left: 303px !important; top: 247px !important; }
+          .vm-mark[data-id="rrd"]   { left: 303px !important; top: 320px !important; }
+          .vm-mark[data-id="roof"]  { left: 195px !important; top: 332px !important; }
+          .vm-mark[data-id="lq"]    { left: 87px !important;  top: 437px !important; }
+          .vm-mark[data-id="rq"]    { left: 303px !important; top: 437px !important; }
+          .vm-mark[data-id="trunk"] { left: 195px !important; top: 474px !important; }
+          .vm-mark[data-id="rear"]  { left: 195px !important; top: 538px !important; }
         }
       `}</style>
     </>

@@ -20,8 +20,8 @@ export default async function EstimativaMobilePage({
       operation_id,
       case_id,
       cases (
-        plate,
-        vehicles ( make, model, year )
+        case_number,
+        vehicles ( plate, make, model, year )
       ),
       operations ( name )
     `)
@@ -40,8 +40,8 @@ export default async function EstimativaMobilePage({
   // Monta labels
   const c = doc.cases as any
   const v = c?.vehicles as any
-  const vehicleLabel = c
-    ? `${c.plate ?? '—'}${v ? ` · ${v.make} ${v.model}` : ''}`
+  const vehicleLabel = v
+    ? `${v.plate ?? c?.case_number ?? '—'} · ${v.make} ${v.model}`
     : `Doc ${doc.doc_number}`
   const op = doc.operations as any
   const operationLabel = op?.name ?? '—'
