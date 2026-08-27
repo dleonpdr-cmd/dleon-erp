@@ -349,6 +349,50 @@ export async function enviarEmailAction(
   return { error: null }
 }
 
+// ─── VehicleMap — salvar avaliação de painel ─────────────────────────────────
+
+export async function saveVehicleMapPanel(params: {
+  documentId: string
+  partId: string
+  partLabel: string
+  state: 'none' | 'ok' | 'light' | 'severe'
+  price: number
+  damageLevel: 'Leve' | 'Médio' | 'Grave' | null
+}): Promise<{ error?: string }> {
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Não autenticado' }
+
+  // Remove linha existente para este painel (upsert manual)
+  await supabase
+    .from('document_items')
+    .delete()
+    .eq('document_id', params.documentId)
+    .eq('part_id', params.partId)
+
+  // Insere nova linha apenas se o painel foi avaliado
+  if (params.state !== 'none') {
+    const { error } = await supabase.from('document_items').insert({
+      document_id: params.documentId,
+      part_id: params.partId,
+      part_label: params.partLabel,
+      item_type: 'pdr_repair',
+      section: 'pdr',
+      damage_level: params.damageLevel,
+      unit_price: params.price,
+      quantity: 1,
+      subtotal: params.price,
+      original_price: params.price,
+      source_type: 'mobile_estimate',
+      sort_order: 0,
+    })
+    if (error) return { error: error.message }
+  }
+
+  revalidatePath(`/mobile/estimativa/${params.documentId}`)
+  return {}
+}
+
 // ─── Histórico de envios ──────────────────────────────────────────────────────
 
 export async function getDeliveryHistoryAction(
